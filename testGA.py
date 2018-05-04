@@ -3,11 +3,13 @@ import datetime
 import pickle
 import numpy
 import featureExtractors as ft
+import patternClass as pc
 from collections import Counter
 from deap import base
 from deap import creator
 from deap import tools
-from joblib import Parallel, delayed
+from scoop import futures
+import functools
 
 def main():
 
@@ -24,7 +26,7 @@ def main():
     genPOccNames = dat[6]
     filtGenPClassNames = dat[7]
 
-    pClassFeatureKeys = pClasses[annPClassNames[0]]['classFeatures'].keys()
+    pClassFeatureKeys = pClasses[annPClassNames[0]].classFeatures.keys()
     pClassFeatureKeys = sorted(pClassFeatureKeys)
 
     numpy.random.shuffle(annPClassNames)
@@ -37,17 +39,18 @@ def main():
         var = numpy.arange(21)
         return random.choice(var)
 
-    def testWeights(wts):
-        res = performKNNwithLOOCV((valPClassNames),
-                                     wts, 10, pClasses)
-        return (res,)
+    testWeights = functools.partial(performKNNwithLOOCV,
+            valPatternClassNames=valPClassNames,
+            kNearest=10,
+            patternClasses=pClasses
+            )
 
     numAttributes = len(pClassFeatureKeys)
-    #results = runGA(instAttribute,numAttributes,testWeights)
+    defaultWeights = numAttributes * [1]
+    results = runGA(instAttribute,numAttributes,testWeights)
 
     pass
 
-#MAKE THIS ALGORITHM LESS BRUTE-FORCE TERRIBLE!!!
 def performKNN(trainPatternClassNames, valPatternClassNames, weights,
                kNearest, patternClasses):
     """
@@ -60,14 +63,14 @@ def performKNN(trainPatternClassNames, valPatternClassNames, weights,
     kNearest: k for knn search
     """
     #start = timer()
-    sortKeys = sorted(patternClasses[valPatternClassNames[0]]['classFeatures'].keys())
+    sortKeys = sorted(patternClasses[valPatternClassNames[0]].classFeatures.keys())
 
     correctClass = 0;
 
     #now time to test some patternClasses!
     for tstMtf in valPatternClassNames:
         curPatternClass = patternClasses[tstMtf]
-        curFeats = curPatternClass['classFeatures']
+        curFeats = curPatternClass.classFeatures
 
         #distances links names of patterns in the training set to their
         #distance to the current item. will never be larger than k.
@@ -78,7 +81,7 @@ def performKNN(trainPatternClassNames, valPatternClassNames, weights,
         #this loop performs 1 KNN search for every iteration
         for tm in trainPatternClassNames:
 
-            trainFeats = patternClasses[tm]['classFeatures']
+            trainFeats = patternClasses[tm].classFeatures
             #the innermost loop:
             dist = 0
             ind = 0
@@ -110,19 +113,18 @@ def performKNN(trainPatternClassNames, valPatternClassNames, weights,
 
         sortDistNames = sorted(distances, key=distances.get)
 
-        closestpatternClassTypes = [patternClasses[mn]['type'] for mn in sortDistNames]
+        closestpatternClassTypes = [patternClasses[mn].type for mn in sortDistNames]
         countTypes = Counter(closestpatternClassTypes)
         predictedClass = sorted(countTypes, key=countTypes.get)[-1]
 
-        if(predictedClass == curPatternClass['type']):
+        if(predictedClass == curPatternClass.type):
             correctClass +=1
     #end = timer()
     #print(end - start)
 
     return correctClass / len(valPatternClassNames)
 
-
-def performKNNwithLOOCV(valPatternClassNames, weights, kNearest, patternClasses):
+def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses):
     """
     a wrapper function for performKNN that performs leave-one-out
     cross-validation.
@@ -141,10 +143,13 @@ def performKNNwithLOOCV(valPatternClassNames, weights, kNearest, patternClasses)
     return correctRuns / len(valPatternClassNames)
 
 def runGA(inst, numAttr, evaluate):
+
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
 
     toolbox = base.Toolbox()
+
+    toolbox.register("map",futures.map)
 
     # Structure initializers
     toolbox.register("individual", tools.initRepeat, creator.Individual,
@@ -170,12 +175,12 @@ def runGA(inst, numAttr, evaluate):
     # drawn randomly from the current generation.
     toolbox.register("select", tools.selTournament, tournsize=3)
 
-#----------
+    #----------
     random.seed(64)
 
     # create an initial population of 300 individuals (where
     # each individual is a list of integers)
-    pop = toolbox.population(n=100)
+    pop = toolbox.population(n=20)
 
     # CXPB  is the probability with which two individuals
     #       are crossed
@@ -186,8 +191,8 @@ def runGA(inst, numAttr, evaluate):
     print("Start of evolution")
 
     # Evaluate the entire population
-    #fitnesses = [toolbox.evaluate(x) for x in pop]
-    fitnesses = Parallel(n_jobs=4)(delayed(toolbox.evaluate)(x) for x in pop)
+    #fitnesses = [toolbox.evaluate(weights=x) for x in pop]
+    fitnesses = toolbox.map(toolbox.evaluate,pop)
 
     for ind, fit in zip(pop, fitnesses):
         ind.fitness.values = fit
@@ -209,7 +214,7 @@ def runGA(inst, numAttr, evaluate):
     filename = filename.replace(":","-")
 
     # Begin the evolution
-    with Parallel(n_jobs=4) as parallel:
+    with Parallel(n_jobs=3,backend='threading') as parallel:
         while g < 10000:
             # A new generation
             g = g + 1
@@ -242,8 +247,8 @@ def runGA(inst, numAttr, evaluate):
             # Evaluate the individuals with an invalid fitness
             invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
             #fitnesses = map(toolbox.evaluate, invalid_ind)
-            #fitnesses = [toolbox.evaluate(x) for x in invalid_ind]
-            fitnesses = parallel(delayed(toolbox.evaluate)(x) for x in invalid_ind)
+            fitnesses = [toolbox.evaluate(weights=x) for x in invalid_ind]
+            #fitnesses = parallel(delayed(toolbox.evaluate)(weights=x) for x in invalid_ind)
 
 
             for ind, fit in zip(invalid_ind, fitnesses):
@@ -290,4 +295,5 @@ def runGA(inst, numAttr, evaluate):
     print("Best individual is %s, %s" % (best_ind, best_ind.fitness.values))
 
 if __name__ == "__main__":
+    __spec__ = None
     main()

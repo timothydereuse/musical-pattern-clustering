@@ -32,61 +32,62 @@ ROUND_DURS_DIGITS = 5;
 
 #try to fetch a single motif
 
+
+# def extractMotif(annEntry, songs):
+#     """
+#     given a row from the annotation file and the database of score files,
+#     return the notes of theassociated motif and some of its metadata as a
+#     dictionary.
+#     """
+#
+#     songName = annEntry[1]
+#     inStart = int(annEntry[6])
+#     numNotes = int(annEntry[8])
+#
+#     #add number of ties before start index from start index; meertens
+#     #DOESN'T count tied notes as notes but music21 DOES
+#     allNotes = songs[songName].score.flat.notes.stream()
+#     #subtract 1 here to get the first note of the occurence in the slice
+#     #so that we can get rid of it if it's a rest
+#     beforeSlice = allNotes[:inStart-1]
+#     numTies = 0
+#     for n in beforeSlice:
+#         if(n.tie != None):
+#             if(n.tie.type == 'start'):
+#                 numTies += 1
+#
+#     inStart += numTies
+#
+#     #do the same for ties inside of the snippet, but also keep track of where
+#     #they are and save that information with the motif so we don't have to go
+#     #through this procedure again
+#     numTies = 0
+#     inSlice = allNotes[inStart:(inStart+numNotes)]
+#     for n in inSlice:
+#         if(n.tie != None):
+#             if(n.tie.type == 'start'):
+#                 numTies += 1
+#
+#
+#     #this new numNotes will work with music21
+#     numNotes += numTies
+#
+#     #NOW we know that we have the actual motif!
+#     motif = allNotes[inStart:(inStart+numNotes)]
+#
+#     return {'notes':motif,
+#             'startInd':inStart,
+#             'endInd':(inStart+numNotes),
+#             'songID':annEntry[1],
+#             'motifClass':annEntry[9],
+#             'duration':annEntry[5]}
+
 #annotated first starting at 0, but tied notes are only counted for the onset
 #must disregard tied notes when doing start/end indices tabarnak
 
 #so: consider the list of notes up to the first index. if there's n ties
 #that live behind the start index, increment the start index by n. when done,
 #look 8 notes ahead and do the same thing
-def extractMotif(annEntry, songs):
-    """
-    given a row from the annotation file and the database of score files,
-    return the notes of theassociated motif and some of its metadata as a
-    dictionary.
-    """
-
-    songName = annEntry[1]
-    inStart = int(annEntry[6])
-    numNotes = int(annEntry[8])
-
-    #add number of ties before start index from start index; meertens
-    #DOESN'T count tied notes as notes but music21 DOES
-    allNotes = songs[songName]['score'].flat.notes.stream()
-    #subtract 1 here to get the first note of the occurence in the slice
-    #so that we can get rid of it if it's a rest
-    beforeSlice = allNotes[:inStart-1]
-    numTies = 0
-    for n in beforeSlice:
-        if(n.tie != None):
-            if(n.tie.type == 'start'):
-                numTies += 1
-
-    inStart += numTies
-
-    #do the same for ties inside of the snippet, but also keep track of where
-    #they are and save that information with the motif so we don't have to go
-    #through this procedure again (TODO)
-    numTies = 0
-    inSlice = allNotes[inStart:(inStart+numNotes)]
-    for n in inSlice:
-        if(n.tie != None):
-            if(n.tie.type == 'start'):
-                numTies += 1
-
-
-    #this new numNotes will work with music21
-    numNotes += numTies
-
-    #NOW we know that we have the actual motif!
-    motif = allNotes[inStart:(inStart+numNotes)]
-
-    return {'notes':motif,
-            'startInd':inStart,
-            'endInd':(inStart+numNotes),
-            'songID':annEntry[1],
-            'motifClass':annEntry[9],
-            'duration':annEntry[5]}
-
 def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
     """
     given song name, occurrence start, occurrence end, and the database of score files,
@@ -98,11 +99,11 @@ def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
 
     #inStart = int(annEntry[6])
     #numNotes = int(annEntry[8])
-    numNotes = inEnd - inStart + 1 #includig endpoints
+    numNotes = inEnd - inStart + 1 #including endpoints
 
     #add number of ties before start index from start index; meertens
     #DOESN'T count tied notes as notes but music21 DOES
-    allNotes = songs[songName]['score'].flat.notes.stream()
+    allNotes = songs[songName].score.flat.notes.stream()
     #subtract 1 here to get the first note of the occurence in the slice
     #so that we can get rid of it if it's a rest
     if(useTies):
@@ -166,13 +167,13 @@ def getFeaturesForSongs(score):
 #single method that is passed an entry from the motifs dict
 #and the database of songs and returns a dict that is a feature
 #vector for that motif. here go
-def getFeaturesForOccurrences(motif,songs):
+def getFeaturesForOccurrences(cur_class,songs):
 
     #DERIVATIVES!!!
     #first do as much as we can with just the notes belonging
     #to the motif itself and see how that does
     vec = {}
-    mel = motif['score']
+    mel = cur_class.score
 
     #for now just remove rests
 
@@ -248,7 +249,7 @@ def getFeaturesForOccurrences(motif,songs):
             vec['polyFitRes3'] = np.sqrt(polyFit3[1][0])
 
     #differences between song and this motif
-    songVec = songs[motif['songName']]['songFeatures']
+    songVec = songs[cur_class.songName].songFeatures
 
     for key in [
             'intervalMean',
@@ -310,16 +311,17 @@ def getFeaturesForClasses(patternClass,occs,songs):
     #for now, this just takes the average/std over all occurrences
     vec = {}
 
-    vec['numOccs'] = len(patternClass['occNames'])
+    vec['numOccs'] = len(patternClass.occNames)
 
-    occFeatureKeys = occs[patternClass['occNames'][0]]['occFeatures'].keys()
+    occFeatureKeys = occs[patternClass.occNames[0]].occFeatures.keys()
+
     for fk in occFeatureKeys:
-        allOccVals = [occs[occName]['occFeatures'][fk] for occName in patternClass['occNames']]
+        allOccVals = [occs[occName].occFeatures[fk] for occName in patternClass.occNames]
         vec["classAvg_" + fk] = np.mean(allOccVals)
         vec["classStd_" + fk] = np.std(allOccVals)
 
 
-    scores = [ occs[oc]['score'].flat for oc in patternClass['occNames']]
+    scores = [ occs[oc].score.flat for oc in patternClass.occNames]
 
     noteNums = [[x.pitch.midi for x in mel] for mel in scores]
     noteDurs = [[round(float(x.quarterLength),ROUND_DURS_DIGITS) \
@@ -363,8 +365,8 @@ def filterPClassesWithKNN(annPClassNames,genPClassNames,kNearest,
         tar1 = pClasses[annPClassNames[indexPairs[i][0]]]
         tar2 = pClasses[annPClassNames[indexPairs[i][1]]]
 
-        tarNumOccs = len(tar1['occNames'])
-        tar2Notes = [len(pOccs[on]['score']) for on in tar2['occNames']]
+        tarNumOccs = len(tar1.occNames)
+        tar2Notes = [len(pOccs[on].score) for on in tar2.occNames]
         tarNumNotes = np.mean(tar2Notes)
 
         candidateNameList = []
@@ -372,8 +374,8 @@ def filterPClassesWithKNN(annPClassNames,genPClassNames,kNearest,
         #calculate how close each generated class is to these parameters
         for gcn in genPClassNamesCopy:
             cand = pClasses[gcn]
-            candNumOccs = len(cand['occNames'])
-            candNotes = [len(pOccs[on]['score']) for on in cand['occNames']]
+            candNumOccs = len(cand.occNames)
+            candNotes = [len(pOccs[on].score) for on in cand.occNames]
             candNumNotes = np.mean(candNotes)
 
             candScore = (candNumOccs - tarNumOccs)**2 + (candNumNotes - tarNumNotes)**2
@@ -400,7 +402,7 @@ def inspectFeature(featureName,table,tableNames,featsType="classFeatures"):
         ret.append(item[featsType][featureName])
     return ret
 
-def scatterFeatures(fn1,fn2,table,tableNames,featsType="classFeatures"):
+def scatterFeatures(fn1,fn2,table,tableNames):
 
     xs = []
     ys = []
@@ -408,8 +410,8 @@ def scatterFeatures(fn1,fn2,table,tableNames,featsType="classFeatures"):
 
     for tn in tableNames:
         item = table[tn]
-        xs.append(item[featsType][fn1])
-        ys.append(item[featsType][fn2])
+        xs.append(item.classFeatures[fn1])
+        ys.append(item.classFeatures[fn2])
         if item['type'] == 'ann':
             types.append('r')
         else:
@@ -431,8 +433,8 @@ def pearsonCoefficients(featureKeys, classNames, pClasses):
         types = []
 
         for cn in (classNames):
-            featVals.append(pClasses[cn]['classFeatures'][k])
-            types.append(pClasses[cn]['type'] == 'ann')
+            featVals.append(pClasses[cn].classFeatures[k])
+            types.append(pClasses[cn].type == 'ann')
 
         res = scipy.stats.pearsonr(featVals,types)
         results.append((res[0],res[1],k))
