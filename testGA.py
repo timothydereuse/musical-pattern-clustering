@@ -8,7 +8,6 @@ from collections import Counter
 from deap import base
 from deap import creator
 from deap import tools
-from scoop import futures
 import functools
 
 def main():
@@ -36,7 +35,7 @@ def main():
     testPClassNames = annPClassNames[:splitPos] + filtGenPClassNames[:splitPos]
 
     def instAttribute():
-        var = numpy.arange(21)
+        var = [0,1,2,4,8,16,32,64]
         return random.choice(var)
 
     testWeights = functools.partial(performKNNwithLOOCV,
@@ -149,8 +148,6 @@ def runGA(inst, numAttr, evaluate):
 
     toolbox = base.Toolbox()
 
-    toolbox.register("map",futures.map)
-
     # Structure initializers
     toolbox.register("individual", tools.initRepeat, creator.Individual,
         inst,numAttr)
@@ -167,7 +164,7 @@ def runGA(inst, numAttr, evaluate):
     # register a mutation operator with a probability to
     # flip each attribute/gene of 0.05
     #toolbox.register("mutate", tools.mutFlipBit, indpb=0.09)
-    toolbox.register("mutate", tools.mutUniformInt, low=0, up=20, indpb=0.06)
+    toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
 
     # operator for selecting individuals for breeding the next
     # generation: each individual of the current generation
@@ -191,8 +188,8 @@ def runGA(inst, numAttr, evaluate):
     print("Start of evolution")
 
     # Evaluate the entire population
-    #fitnesses = [toolbox.evaluate(weights=x) for x in pop]
-    fitnesses = toolbox.map(toolbox.evaluate,pop)
+    fitnesses = [(toolbox.evaluate(weights=x),) for x in pop]
+    #fitnesses = toolbox.map(toolbox.evaluate,pop)
 
     for ind, fit in zip(pop, fitnesses):
         ind.fitness.values = fit
@@ -214,80 +211,78 @@ def runGA(inst, numAttr, evaluate):
     filename = filename.replace(":","-")
 
     # Begin the evolution
-    with Parallel(n_jobs=3,backend='threading') as parallel:
-        while g < 10000:
-            # A new generation
-            g = g + 1
-            print("-- Generation %i --" % g)
+    #with Parallel(n_jobs=3,backend='threading') as parallel:
+    while g < 10000:
+        # A new generation
+        g = g + 1
+        print("-- Generation %i --" % g)
 
-            # Select the next generation individuals
-            offspring = toolbox.select(pop, len(pop))
-            # Clone the selected individuals
-            offspring = list(map(toolbox.clone, offspring))
+        # Select the next generation individuals
+        offspring = toolbox.select(pop, len(pop))
+        # Clone the selected individuals
+        offspring = list(map(toolbox.clone, offspring))
 
-            # Apply crossover and mutation on the offspring
-            for child1, child2 in zip(offspring[::2], offspring[1::2]):
+        # Apply crossover and mutation on the offspring
+        for child1, child2 in zip(offspring[::2], offspring[1::2]):
 
-                # cross two individuals with probability CXPB
-                if random.random() < CXPB:
-                    toolbox.mate(child1, child2)
+            # cross two individuals with probability CXPB
+            if random.random() < CXPB:
+                toolbox.mate(child1, child2)
 
-                    # fitness values of the children
-                    # must be recalculated later
-                    del child1.fitness.values
-                    del child2.fitness.values
+                # fitness values of the children
+                # must be recalculated later
+                del child1.fitness.values
+                del child2.fitness.values
 
-            for mutant in offspring:
+        for mutant in offspring:
 
-                # mutate an individual with probability MUTPB
-                if random.random() < MUTPB:
-                    toolbox.mutate(mutant)
-                    del mutant.fitness.values
+            # mutate an individual with probability MUTPB
+            if random.random() < MUTPB:
+                toolbox.mutate(mutant)
+                del mutant.fitness.values
 
-            # Evaluate the individuals with an invalid fitness
-            invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-            #fitnesses = map(toolbox.evaluate, invalid_ind)
-            fitnesses = [toolbox.evaluate(weights=x) for x in invalid_ind]
-            #fitnesses = parallel(delayed(toolbox.evaluate)(weights=x) for x in invalid_ind)
-
-
-            for ind, fit in zip(invalid_ind, fitnesses):
-                ind.fitness.values = fit
-
-            print("  Evaluated %i individuals" % len(invalid_ind))
-
-            # The population is entirely replaced by the offspring
-            pop[:] = offspring
-
-            # Gather all the fitnesses in one list and print the stats
-            fits = [ind.fitness.values[0] for ind in pop]
-
-            length = len(pop)
-            mean = sum(fits) / length
-            sum2 = sum(x*x for x in fits)
-            std = abs(sum2 / length - mean**2)**0.5
-
-            print("  Min %s" % min(fits))
-            print("  Max %s" % max(fits))
-            print("  Avg %s" % mean)
-            print("  Std %s" % std)
-            print(genFitArr)
-            genFitArr.append(round(mean,4))
-
-            best_ind = tools.selBest(pop, 1)[0]
-            print(best_ind)
-
-            file = open(filename,"a")
-            file.write("  GEN. " + str(g))
-            file.write("  Min %s" % round(min(fits),6))
-            file.write("  Max %s" % round(max(fits),6))
-            file.write("  Avg %s" % round(mean,6))
-            file.write("  Std %s" % round(std,6))
-            file.write(str(best_ind))
-            file.write("\n ")
-            file.close()
+        # Evaluate the individuals with an invalid fitness
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        #fitnesses = map(toolbox.evaluate, invalid_ind)
+        fitnesses = [(toolbox.evaluate(weights=x),) for x in invalid_ind]
+        #fitnesses = parallel(delayed(toolbox.evaluate)(weights=x) for x in invalid_ind)
 
 
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
+
+        print("  Evaluated %i individuals" % len(invalid_ind))
+
+        # The population is entirely replaced by the offspring
+        pop[:] = offspring
+
+        # Gather all the fitnesses in one list and print the stats
+        fits = [ind.fitness.values[0] for ind in pop]
+
+        length = len(pop)
+        mean = sum(fits) / length
+        sum2 = sum(x*x for x in fits)
+        std = abs(sum2 / length - mean**2)**0.5
+
+        print("  Min %s" % min(fits))
+        print("  Max %s" % max(fits))
+        print("  Avg %s" % mean)
+        print("  Std %s" % std)
+        print(genFitArr)
+        genFitArr.append(round(mean,4))
+
+        best_ind = tools.selBest(pop, 1)[0]
+        print(best_ind)
+
+        file = open(filename,"a")
+        file.write("  GEN. " + str(g))
+        file.write("  Min %s" % round(min(fits),6))
+        file.write("  Max %s" % round(max(fits),6))
+        file.write("  Avg %s" % round(mean,6))
+        file.write("  Std %s" % round(std,6))
+        file.write(str(best_ind))
+        file.write("\n ")
+        file.close()
 
     print("-- End of (successful) evolution --")
 
