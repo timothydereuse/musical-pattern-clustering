@@ -30,15 +30,20 @@ def main():
 
     numpy.random.shuffle(annPClassNames)
     numpy.random.shuffle(filtGenPClassNames)
-    splitPos = int(round(len(annPClassNames) * 0.2))
-    valPClassNames = annPClassNames[splitPos:] + filtGenPClassNames[splitPos:]
-    testPClassNames = annPClassNames[:splitPos] + filtGenPClassNames[:splitPos]
+
+    ann_chunks = split_into_chunks(annPClassNames,5)
+    gen_chunks = split_into_chunks(filtGenPClassNames,5)
+    data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(5)]
+
+    testPClassNames = data_sets[0]
+    valPClassNames = [x for sublist in data_sets[1:5] for x in sublist]
 
     def instAttribute():
-        var = [0,1,2,4,8,16,32,64]
-        return random.choice(var)
+        #var = [0,1,2,4,8,16,32,64]
+        #return random.choice(var)
+        return random.uniform(0,1)
 
-    subset = keys_subset(pClassFeatureKeys,'exclude_means')
+    subset = keys_subset(pClassFeatureKeys,'exclude_stds')
     numAttributes = len(subset)
     defaultWeights = numAttributes * [1]
 
@@ -49,8 +54,9 @@ def main():
             useKeys = subset
             )
 
-    testWeights = functools.partial(performKNNwithLOOCV,
+    testWeights = functools.partial(performKNN,
             valPatternClassNames = testPClassNames,
+            trainPatternClassNames = valPClassNames,
             kNearest = 10,
             patternClasses = pClasses,
             useKeys = subset
@@ -75,6 +81,17 @@ def keys_subset(all_keys,type_string):
     else:
         return all_keys
     pass
+
+def split_into_chunks(inp,num_chunks):
+
+    chunk_len = int(numpy.floor(len(inp) / num_chunks))
+    chunks = [inp[i:i + chunk_len] for i in range(0, len(inp), chunk_len)]
+    if len(chunks) > num_chunks:
+        for i,x in enumerate(chunks[num_chunks]):
+            chunks[i].append(x)
+        del chunks[num_chunks]
+
+    return chunks
 
 def performKNN(weights, kNearest, trainPatternClassNames, valPatternClassNames,
                patternClasses, useKeys = None):
@@ -189,22 +206,18 @@ def runGA(inst, numAttr, evaluate, test_func):
     #----------
     # register the goal / fitness function
     toolbox.register("evaluate", evaluate)
-    toolbox.register("mate", tools.cxTwoPoint)
+    toolbox.register("mate", tools.cxUniform)
 
-    # register a mutation operator with a probability to
-    # flip each attribute/gene of 0.05
-    toolbox.register("mutate", tools.mutFlipBit, indpb=0.1)
+    # register a mutation operator
+    toolbox.register("mutate", tools.mutPolynomialBounded, eta=0.4, low=0, up=1, indpb=0.06)
     #toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
-
 
     # operator for selecting individuals for breeding the next
     # generation: each individual of the current generation
     # is replaced by the 'fittest' (best) of three individuals
     # drawn randomly from the current generation.
     toolbox.register("select", tools.selTournament, tournsize=3)
-
-    #----------
-    random.seed(64)
+    #random.seed(64)
 
     # create an initial population of 300 individuals (where
     # each individual is a list of integers)
@@ -258,7 +271,7 @@ def runGA(inst, numAttr, evaluate, test_func):
 
             # cross two individuals with probability CXPB
             if random.random() < CXPB:
-                toolbox.mate(child1, child2)
+                toolbox.mate(child1, child2, 0.5)
 
                 # fitness values of the children
                 # must be recalculated later
@@ -304,7 +317,7 @@ def runGA(inst, numAttr, evaluate, test_func):
         genFitArr.append(round(mean,4))
 
         best_ind = tools.selBest(pop, 1)[0]
-        print(str(best_ind) + "\n")
+        print(str([round(x,2) for x in best_ind]) + "\n")
         print(" test set %s \n" % test_func(best_ind))
 
         file = open(filename,"a")
