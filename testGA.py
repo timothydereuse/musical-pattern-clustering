@@ -27,43 +27,51 @@ def main():
 
     pClassFeatureKeys = pClasses[annPClassNames[0]].classFeatures.keys()
     pClassFeatureKeys = sorted(pClassFeatureKeys)
+    num_chunks = 5
 
     numpy.random.shuffle(annPClassNames)
     numpy.random.shuffle(filtGenPClassNames)
 
-    ann_chunks = split_into_chunks(annPClassNames,5)
-    gen_chunks = split_into_chunks(filtGenPClassNames,5)
-    data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(5)]
-
-    testPClassNames = data_sets[0]
-    valPClassNames = [x for sublist in data_sets[1:5] for x in sublist]
+    ann_chunks = split_into_chunks(annPClassNames,num_chunks)
+    gen_chunks = split_into_chunks(filtGenPClassNames,num_chunks)
+    data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
 
     def instAttribute():
-        #var = [0,1,2,4,8,16,32,64]
-        #return random.choice(var)
         return random.uniform(0,1)
 
     subset = keys_subset(pClassFeatureKeys,'exclude_stds')
     numAttributes = len(subset)
     defaultWeights = numAttributes * [1]
 
-    validateWeights = functools.partial(performKNNwithLOOCV,
-            valPatternClassNames = valPClassNames,
-            kNearest = 10,
-            patternClasses = pClasses,
-            useKeys = subset
-            )
+    for num_run in range(num_chunks):
 
-    testWeights = functools.partial(performKNN,
-            valPatternClassNames = testPClassNames,
-            trainPatternClassNames = valPClassNames,
-            kNearest = 10,
-            patternClasses = pClasses,
-            useKeys = subset
-            )
+        testPClassNames = data_sets[num_run]
+        valPClassNames = [data_sets[i] for i in range(num_chunks) if i is not num_run]
+        valPClassNames = [item for sublist in valPClassNames for item in sublist]
 
-    #print(testWeights(defaultWeights))
-    results = runGA(instAttribute,numAttributes,validateWeights,testWeights)
+        validateWeights = functools.partial(performKNNwithLOOCV,
+                valPatternClassNames = valPClassNames,
+                kNearest = 10,
+                patternClasses = pClasses,
+                useKeys = subset
+                )
+
+        testWeights = functools.partial(performKNN,
+                valPatternClassNames = testPClassNames,
+                trainPatternClassNames = valPClassNames,
+                kNearest = 10,
+                patternClasses = pClasses,
+                useKeys = subset
+                )
+
+        #print(testWeights(defaultWeights))
+
+        #file to write results into
+        currentTime = str(datetime.datetime.now())
+        filename = "GA DATA num " + str(num_run) + " at " + currentTime + ".txt"
+        filename = filename.replace(":","-")
+
+        runGA(instAttribute,numAttributes,validateWeights,testWeights,filename)
 
     pass
 
@@ -186,9 +194,10 @@ def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses,
         correctRuns += res
         #print(res)
 
+
     return correctRuns / len(valPatternClassNames)
 
-def runGA(inst, numAttr, evaluate, test_func):
+def runGA(inst, numAttr, evaluate, test_func, filename = None):
 
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -249,14 +258,10 @@ def runGA(inst, numAttr, evaluate, test_func):
     #array keeping track of fittnesses
     genFitArr = []
 
-    #file to write results into line by line
-    currentTime = str(datetime.datetime.now())
-    filename = "GA DATA " + currentTime + ".txt"
-    filename = filename.replace(":","-")
+    continue_evolving = True
 
     # Begin the evolution
-    #with Parallel(n_jobs=3,backend='threading') as parallel:
-    while g < 10000:
+    while g < 10000 and continue_evolving:
         # A new generation
         g = g + 1
         print("-- Generation %i --" % g)
@@ -308,17 +313,20 @@ def runGA(inst, numAttr, evaluate, test_func):
         sum2 = sum(x*x for x in fits)
         std = abs(sum2 / length - mean**2)**0.5
 
-        print("  Min %s" % min(fits))
+        #print("  Min %s" % min(fits))
         print("  Max %s" % max(fits))
-        print("  Avg %s" % mean)
-        print("  Std %s" % std)
-        #print(genFitArr)
+        #print("  Avg %s" % mean)
+        #print("  Std %s" % std)
 
-        genFitArr.append(round(mean,4))
+        genFitArr.append(round(mean,5))
+        if( g > 5 and (max(genFitArr[-5:-1]) - min(genFitArr[-5:-1])) < 0.005 ):
+            print('convergence reached - halting evolution')
+            continue_evolving = False
 
         best_ind = tools.selBest(pop, 1)[0]
         print(str([round(x,2) for x in best_ind]) + "\n")
-        print(" test set %s \n" % test_func(best_ind))
+        print(" test set %s " % test_func(best_ind))
+        print(genFitArr)
 
         file = open(filename,"a")
         file.write("  GEN. " + str(g))
@@ -330,10 +338,17 @@ def runGA(inst, numAttr, evaluate, test_func):
         file.write("\n ")
         file.close()
 
-    print("-- End of (successful) evolution --")
+    print("-- End of evolution --")
 
     best_ind = tools.selBest(pop, 1)[0]
-    print("Best individual is %s, %s" % (best_ind, best_ind.fitness.values))
+
+    file = open(filename,"a")
+    file.write("Best individual is %s, %s" % (best_ind, best_ind.fitness.values))
+    file.write(str(print(genFitArr)))
+    file.write(" test set: %s " % test_func(best_ind))
+    file.close()
+
+
 
 if __name__ == "__main__":
     main()
