@@ -175,7 +175,7 @@ for row in annPTable:
 ###FILTER GENERATED PATTERN CLASSES
 ###---------------------------------------
 print('filtering generated pattern classes...')
-filtGenPClassNames = ft.filterPClassesWithKNN(annPClassNames,genPClassNames,5,
+filtGenPClassNames = ft.filterPClassesWithKNN(annPClassNames,genPClassNames,1,
                                         pClasses,pOccs)
 filtGenPOccNames = []
 for gcn in filtGenPClassNames:

@@ -133,7 +133,6 @@ def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
 
     return pattOcc
 
-
 def getFeaturesForSongs(score):
     vec = {}
 
@@ -144,12 +143,12 @@ def getFeaturesForSongs(score):
     for k in couInt.keys():
         couInt[k] /= len(intervals)
 
-    vec['intervalProbs'] = couInt
-    vec['pitchMean'] = np.mean(noteNums)
-    vec['intervalMean'] = np.mean(np.abs(intervals))
-    vec['avgIntervalSigns'] = sum(np.sign(intervals)) / len(intervals)
-    vec['propSmallIntervals'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
-    vec['propLargeIntervals'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
+    vec['interval_probs'] = couInt
+    vec['pitch_mean'] = np.mean(noteNums)
+    vec['interval_mean'] = np.mean(np.abs(intervals))
+    vec['interval_avg_signs'] = sum(np.sign(intervals)) / len(intervals)
+    vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
+    vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
 
     noteDurs = [round(float(x.quarterLength),ROUND_DURS_DIGITS) for x in mel]
 
@@ -157,10 +156,9 @@ def getFeaturesForSongs(score):
     for k in couRtm.keys():
         couRtm[k] /= len(noteDurs)
 
-    vec['durationProbs'] = couRtm
-    vec['rhythmicDensity'] = np.mean(noteDurs)
-    vec['varianceNoteDur'] = np.var(noteDurs)
-    vec['rhythmicVariability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
+    vec['duration_probs'] = couRtm
+    vec['rhythm_density'] = np.mean(noteDurs)
+    vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
 
     return vec
 
@@ -183,82 +181,83 @@ def getFeaturesForOccurrences(cur_class,songs):
     highest = max(noteNums)
     lowest = min(noteNums)
 
-    vec['highestNote'] = highest
-    vec['lowestNote'] = lowest
-    vec['range'] = highest-lowest
-    vec['numPitchClasses'] = len(set(noteNums))
-    vec['pitchMean'] = np.mean(noteNums)
-    vec['pitchStd'] = np.std(noteNums)
     vec['numNotes'] = len(noteNums)
-    vec['maxInterval'] = max(np.abs(intervals))
-    vec['minInterval'] = min(np.abs(intervals))
-    vec['largestAscInterval'] = max([max(intervals),0])
-    vec['largestDescInterval'] = min([min(intervals),0])
-    vec['intervalMean'] = np.mean(np.abs(intervals))
-    vec['propSmallIntervals'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
-    vec['propLargeIntervals'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
-    vec['posHighestNote'] = noteNums.index(highest) / len(noteNums)
-    vec['posLowestNote'] = noteNums.index(lowest) / len(noteNums)
-    vec['ascOrDesc'] = np.sign(noteNums[0] - noteNums[len(noteNums)-1])
-    vec['avgIntervalSigns'] = sum(np.sign(intervals)) / len(intervals)
+
+    vec['pitch_highest'] = highest
+    vec['pitch_lowest'] = lowest
+    vec['pitch_range'] = highest-lowest
+    vec['pitch_num_classes'] = len(set(noteNums))
+    vec['pitch_mean'] = np.mean(noteNums)
+    vec['pitch_std'] = np.std(noteNums)
+    vec['interval_max'] = max(np.abs(intervals))
+    vec['interval_min'] = min(np.abs(intervals))
+    vec['interval_largest_asc'] = max([max(intervals),0])
+    vec['interval_largest_desc'] = min([min(intervals),0])
+    vec['interval_mean'] = np.mean(np.abs(intervals))
+    vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
+    vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
+    vec['pitch_pos_highest'] = noteNums.index(highest) / len(noteNums)
+    vec['pitch_pos_lowest'] = noteNums.index(lowest) / len(noteNums)
+    vec['interval_asc_or_desc'] = np.sign(noteNums[0] - noteNums[len(noteNums)-1])
+    vec['interval_avg_signs'] = sum(np.sign(intervals)) / len(intervals)
 
     #-1 if monotonically down, 1 if up, else 0
     if all([np.sign(x) == 1 for x in intervals]):
-        vec['strictAscOrDesc'] = 1
+        vec['interval_strict_asc_or_desc'] = 1
     elif all([np.sign(x) == -1 for x in intervals]):
-        vec['strictAscOrDesc'] = -1
+        vec['interval_strict_asc_or_desc'] = -1
     else:
-        vec['strictAscOrDesc'] = 0
+        vec['interval_strict_asc_or_desc'] = 0
 
     #rhythmic properties
     noteDurs = [round(float(x.quarterLength),ROUND_DURS_DIGITS) for x in mel]
-    vec['duration'] = sum(noteDurs)
-    vec['longestNote'] = max(noteDurs)
-    vec['shortestNote'] = min(noteDurs)
-    vec['rhythmicDensity'] = np.mean(noteDurs)
-    vec['rhythmicVariability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
-    vec['lastNoteDur'] = noteDurs[len(noteDurs)-1]
+    vec['rhythm_duration'] = sum(noteDurs)
+    vec['rhythm_longest_note'] = max(noteDurs)
+    vec['rhythm_shortest_note'] = min(noteDurs)
+    vec['rhythm_density'] = np.mean(noteDurs)
+    vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
+    vec['rhythm_last_note_duration'] = noteDurs[len(noteDurs)-1]
 
     #POLYFIT IDEA
     yCoords = [y - noteNums[0] for y in noteNums]
-    xtemp = [float(x.offset) / vec['duration'] for x in mel]
+    xtemp = [float(x.offset) / vec['rhythm_duration'] for x in mel]
     xCoords = [x - xtemp[0] for x in xtemp]
 
     #print(str(xCoords) + " vs " + str(yCoords))
     polyFit1 = np.polyfit(xCoords,yCoords,1,full=True)
-    vec['polyFit1'] = polyFit1[0][0]
-    vec['polyFitRes1'] = 0
+    vec['polyfit_1'] = polyFit1[0][0]
+    vec['polyfit_residual_1'] = 0
     if polyFit1[1].size > 0:
-        vec['polyFitRes1'] = np.sqrt(polyFit1[1][0])
+        vec['polyfit_residual_1'] = np.sqrt(polyFit1[1][0])
 
-    vec['polyFit2'] = 0
-    vec['polyFitRes2'] = 0
-    vec['polyFit3'] = 0
-    vec['polyFitRes3'] = 0
+    vec['polyfit_2'] = 0
+    vec['polyfit_residual_2'] = 0
+    vec['polyfit_3'] = 0
+    vec['polyfit_residual_3'] = 0
 
     if len(noteNums) >= 3:
         polyFit2 = np.polyfit(xCoords,yCoords,2,full=True)
-        vec['polyFit2'] = polyFit2[0][0]
+        vec['polyfit_2'] = polyFit2[0][0]
         if polyFit2[1].size > 0:
-            vec['polyFitRes2'] = np.sqrt(polyFit2[1][0])
+            vec['polyfit_residual_2'] = np.sqrt(polyFit2[1][0])
 
     if len(noteNums) >= 4:
         polyFit3 = np.polyfit(xCoords,yCoords,3,full=True)
-        vec['polyFit3'] = polyFit3[0][0]
+        vec['polyfit_3'] = polyFit3[0][0]
         if polyFit3[1].size > 0:
-            vec['polyFitRes3'] = np.sqrt(polyFit3[1][0])
+            vec['polyfit_residual_3'] = np.sqrt(polyFit3[1][0])
 
     #differences between song and this motif
     songVec = songs[cur_class.songName].songFeatures
 
     for key in [
-            'intervalMean',
-            'rhythmicVariability',
-            'rhythmicDensity',
-            'avgIntervalSigns',
-            'pitchMean',
-            'propSmallIntervals',
-            'propLargeIntervals'
+            'interval_mean',
+            'rhythm_variability',
+            'rhythm_density',
+            'interval_avg_signs',
+            'pitch_mean',
+            'interval_prop_small',
+            'interval_prop_large'
             ]:
         vec['diff' + key] = songVec[key] - vec[key]
 
@@ -273,32 +272,31 @@ def getFeaturesForOccurrences(cur_class,songs):
 #        vec['intervalPreceding'] = songScoreNums[motif['endInd'] - 1] - noteNums[0]
 
 
-
     sumIntProbs = 1
     for i in intervals:
-        sumIntProbs *= songVec['intervalProbs'][i]
-    vec['logPitchExpectedOccurrences'] = np.log(sumIntProbs)
+        sumIntProbs *= songVec['interval_probs'][i]
+    vec['interval_log_expected_occurrences'] = np.log(sumIntProbs)
 
     sumDurProbs = 1
     for d in noteDurs:
-        sumDurProbs *= songVec['durationProbs'][d]
-    vec['logRhythmicExpectedOccurences'] = np.log(sumDurProbs)
+        sumDurProbs *= songVec['duration_probs'][d]
+    vec['rhythm_log_expected_occurrences'] = np.log(sumDurProbs)
 
 
 
-    vec['startsOnDownbeat'] = 0
-    vec['crossesMeasure'] = 0
-    vec['startBeatStr'] = 0
-    vec['lastBeatStr'] = 0
+    vec['rhythm_starts_on_downbeat'] = 0
+    vec['rhythm_crosses_measure'] = 0
+    vec['rhythm_start_beat_str'] = 0
+    vec['rhythm_last_beat_str'] = 0
     try:
         noteBeats = [x.beat for x in mel]
-        vec['startsOnDownbeat'] = (noteBeats[0] == 1.0)
-        vec['crossesMeasure'] = sum([noteBeats[n] < noteBeats[n-1] for n in range(1,len(noteBeats))]) > 0
+        vec['rhythm_starts_on_downbeat'] = (noteBeats[0] == 1.0)
+        vec['rhythm_crosses_measure'] = sum([noteBeats[n] < noteBeats[n-1] for n in range(1,len(noteBeats))]) > 0
 
         #figure out how to tell if note has associated time signature
         noteStr = [x.beatStrength for x in mel]
-        vec['startBeatStr'] = np.log(noteStr[0])
-        vec['lastBeatStr'] = np.log(noteStr[len(noteStr)-1])
+        vec['rhythm_start_beat_str'] = np.log(noteStr[0])
+        vec['rhythm_last_beat_str'] = np.log(noteStr[len(noteStr)-1])
     except m21.Music21ObjectException:
         #this is not a good solution.
         pass
@@ -317,8 +315,8 @@ def getFeaturesForClasses(patternClass,occs,songs):
 
     for fk in occFeatureKeys:
         allOccVals = [occs[occName].occFeatures[fk] for occName in patternClass.occNames]
-        vec["classAvg_" + fk] = np.mean(allOccVals)
-        vec["classStd_" + fk] = np.std(allOccVals)
+        vec["avg_" + fk] = np.mean(allOccVals)
+        vec["std_" + fk] = np.std(allOccVals)
 
 
     scores = [ occs[oc].score.flat for oc in patternClass.occNames]
@@ -328,17 +326,17 @@ def getFeaturesForClasses(patternClass,occs,songs):
     for x in mel] for mel in scores]
 
     flatNums = [x for subList in noteNums for x in subList]
-    vec['numNotesTotal'] = len(flatNums)
+    vec['num_notes_total'] = len(flatNums)
 
-    vec['propUniquePitchContent'] = \
+    vec['unique_pitch_prop_content'] = \
     len(set(tuple(x) for x in noteNums)) / vec['numOccs']
 
-    vec['propUniqueRhythmicContent'] = \
+    vec['unique_rhythm_prop_content'] = \
    len(set(tuple(x) for x in noteDurs)) / vec['numOccs']
 
     pitchAndDurs = [(noteNums[x] + noteDurs[x]) for x in range(0,vec['numOccs'])]
 
-    vec['propUniqueRhythmicAndPitchContent'] = \
+    vec['prop_unique_content'] = \
     len(set(tuple(x) for x in pitchAndDurs)) / vec['numOccs']
 
     return vec
@@ -394,7 +392,7 @@ def filterPClassesWithKNN(annPClassNames,genPClassNames,kNearest,
 
 
 #just for testing: get all features
-#plt.plot(sorted(inspectFeature('classAvg_pitchMean',pClasses,genPClassNames + annPClassNames)))
+#plt.plot(sorted(inspectFeature('classAvg_pitch_mean',pClasses,genPClassNames + annPClassNames)))
 def inspectFeature(featureName,table,tableNames,featsType="classFeatures"):
     ret = []
     for tn in tableNames:
