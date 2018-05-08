@@ -38,20 +38,46 @@ def main():
         var = [0,1,2,4,8,16,32,64]
         return random.choice(var)
 
-    testWeights = functools.partial(performKNNwithLOOCV,
-            valPatternClassNames=valPClassNames,
-            kNearest=10,
-            patternClasses=pClasses
+    subset = keys_subset(pClassFeatureKeys,'exclude_means')
+    numAttributes = len(subset)
+    defaultWeights = numAttributes * [1]
+
+    validateWeights = functools.partial(performKNNwithLOOCV,
+            valPatternClassNames = valPClassNames,
+            kNearest = 10,
+            patternClasses = pClasses,
+            useKeys = subset
             )
 
-    numAttributes = len(pClassFeatureKeys)
-    defaultWeights = numAttributes * [1]
-    results = runGA(instAttribute,numAttributes,testWeights)
+    testWeights = functools.partial(performKNNwithLOOCV,
+            valPatternClassNames = testPClassNames,
+            kNearest = 10,
+            patternClasses = pClasses,
+            useKeys = subset
+            )
+
+    #print(testWeights(defaultWeights))
+    results = runGA(instAttribute,numAttributes,validateWeights,testWeights)
 
     pass
 
-def performKNN(trainPatternClassNames, valPatternClassNames, weights,
-               kNearest, patternClasses):
+def keys_subset(all_keys,type_string):
+    if type_string == 'only_pitch':
+        return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
+    elif type_string == 'only_rhythm':
+        return [x for x in all_keys if ('rhythm' in x)]
+    elif type_string == 'exclude_means':
+        return [x for x in all_keys if ('avg' not in x)]
+    elif type_string == 'exclude_stds':
+        return [x for x in all_keys if ('std' not in x)]
+    elif type_string == 'exclude_song_comp':
+        return [x for x in all_keys if ('diff' not in x)]
+    else:
+        return all_keys
+    pass
+
+def performKNN(weights, kNearest, trainPatternClassNames, valPatternClassNames,
+               patternClasses, useKeys = None):
     """
     returns a float representing the proportion of correctly classified patternClasses
     using KNN with the settings given
@@ -62,7 +88,10 @@ def performKNN(trainPatternClassNames, valPatternClassNames, weights,
     kNearest: k for knn search
     """
     #start = timer()
-    sortKeys = sorted(patternClasses[valPatternClassNames[0]].classFeatures.keys())
+    if useKeys == None:
+        sortKeys = sorted(patternClasses[valPatternClassNames[0]].classFeatures.keys())
+    else:
+        sortKeys = sorted(useKeys)
 
     correctClass = 0;
 
@@ -85,7 +114,7 @@ def performKNN(trainPatternClassNames, valPatternClassNames, weights,
             dist = 0
             ind = 0
 
-            for ind in range(0,len(curFeats)):
+            for ind in range(0,len(sortKeys)):
                 #well, if i'm just doing feature selection, then i can get rid
                 #of the multiplication in the weights...
                 if weights[ind] == 0:
@@ -123,7 +152,7 @@ def performKNN(trainPatternClassNames, valPatternClassNames, weights,
 
     return correctClass / len(valPatternClassNames)
 
-def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses):
+def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses, useKeys=None):
     """
     a wrapper function for performKNN that performs leave-one-out
     cross-validation.
@@ -135,13 +164,14 @@ def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses)
         valNames = [valPatternClassNames[i]]
         #(valNames)
 
-        res = performKNN(trainNames,valNames,weights,kNearest,patternClasses)
+        res = performKNN(weights,kNearest,trainNames,valNames,
+                            patternClasses,useKeys)
         correctRuns += res
         #print(res)
 
     return correctRuns / len(valPatternClassNames)
 
-def runGA(inst, numAttr, evaluate):
+def runGA(inst, numAttr, evaluate, test_func):
 
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -163,8 +193,9 @@ def runGA(inst, numAttr, evaluate):
 
     # register a mutation operator with a probability to
     # flip each attribute/gene of 0.05
-    #toolbox.register("mutate", tools.mutFlipBit, indpb=0.09)
-    toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
+    toolbox.register("mutate", tools.mutFlipBit, indpb=0.1)
+    #toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
+
 
     # operator for selecting individuals for breeding the next
     # generation: each individual of the current generation
@@ -177,7 +208,7 @@ def runGA(inst, numAttr, evaluate):
 
     # create an initial population of 300 individuals (where
     # each individual is a list of integers)
-    pop = toolbox.population(n=20)
+    pop = toolbox.population(n=50)
 
     # CXPB  is the probability with which two individuals
     #       are crossed
@@ -268,11 +299,13 @@ def runGA(inst, numAttr, evaluate):
         print("  Max %s" % max(fits))
         print("  Avg %s" % mean)
         print("  Std %s" % std)
-        print(genFitArr)
+        #print(genFitArr)
+
         genFitArr.append(round(mean,4))
 
         best_ind = tools.selBest(pop, 1)[0]
-        print(best_ind)
+        print(str(best_ind) + "\n")
+        print(" test set %s \n" % test_func(best_ind))
 
         file = open(filename,"a")
         file.write("  GEN. " + str(g))
@@ -290,5 +323,4 @@ def runGA(inst, numAttr, evaluate):
     print("Best individual is %s, %s" % (best_ind, best_ind.fitness.values))
 
 if __name__ == "__main__":
-    __spec__ = None
     main()

@@ -259,7 +259,7 @@ def getFeaturesForOccurrences(cur_class,songs):
             'interval_prop_small',
             'interval_prop_large'
             ]:
-        vec['diff' + key] = songVec[key] - vec[key]
+        vec['diff_' + key] = songVec[key] - vec[key]
 
      #songScore = songs[motif['songName']]['score'].flat.notes.stream()
 #    songScoreNums = [x.pitch.midi for x in songScore]
@@ -281,8 +281,6 @@ def getFeaturesForOccurrences(cur_class,songs):
     for d in noteDurs:
         sumDurProbs *= songVec['duration_probs'][d]
     vec['rhythm_log_expected_occurrences'] = np.log(sumDurProbs)
-
-
 
     vec['rhythm_starts_on_downbeat'] = 0
     vec['rhythm_crosses_measure'] = 0
@@ -389,7 +387,6 @@ def filterPClassesWithKNN(annPClassNames,genPClassNames,kNearest,
         genPClassNamesCopy.remove(choice)
 
     return filtGenPClassNames
-
 
 #just for testing: get all features
 #plt.plot(sorted(inspectFeature('classAvg_pitch_mean',pClasses,genPClassNames + annPClassNames)))
