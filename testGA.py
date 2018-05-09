@@ -13,6 +13,7 @@ from deap import tools
 from timeit import default_timer as timer
 import functools
 from scoop import futures
+from multiprocessing import Pool
 
 def keys_subset(all_keys,type_string):
     if type_string == 'only_pitch':
@@ -138,17 +139,64 @@ def perform_knn_with_loocv(weights, valPatternClassNames, kNearest, patternClass
 
     return correctRuns / len(valPatternClassNames)
 
-def runGA(inst, num_attr, evaluate, test_func, pop, filename = None):
+def test_subsets(k_vals,all_keys,names,classes):
+
+    subsets = ['only_pitch','only_rhythm','exclude_means',
+            'exclude_stds','exclude_song_comp','all']
+    res = str(k_vals) + "\n"
+
+    for s in subsets:
+        this_keys = keys_subset(all_keys,s)
+        weights = [1]*len(this_keys)
+        res += s + ' '
+        for k in k_vals:
+            t = perform_knn_with_loocv(weights,names,k,classes,this_keys)
+            res += "& " + str(round(t*100,1)) + " "
+        res += "\n"
+
+    return res
+
+def runGA(num_run, num_chunks, feature_subset, k_nearest, data_sets, pClasses):
+    pop = 50
+
+    pClassFeatureKeys = list(pClasses[list(pClasses.keys())[0]].classFeatures.keys())
+    subset = keys_subset(pClassFeatureKeys,feature_subset)
+    num_attr = len(subset)
+
+    instAttribute = functools.partial(random.uniform,0,1)
+
+    test_pat_names = data_sets[num_run]
+    valPClassNames = [data_sets[i] for i in range(num_chunks) if i is not num_run]
+    valPClassNames = [item for sublist in valPClassNames for item in sublist]
+
+    evaluate = functools.partial(perform_knn_with_loocv,
+            valPatternClassNames = valPClassNames,
+            kNearest = k_nearest,
+            patternClasses = pClasses,
+            useKeys = subset
+            )
+
+    test_func = functools.partial(perform_knn,
+            valPatternClassNames = test_pat_names,
+            trainPatternClassNames = valPClassNames,
+            kNearest = k_nearest,
+            patternClasses = pClasses,
+            useKeys = subset
+            )
+
+    #file to write results into
+    currentTime = str(datetime.datetime.now())
+    filename = "GA DATA num " + str(num_run) + " at " + currentTime + ".txt"
+    filename = "GA DATA %s,%s,%s.txt" % (num_run,feature_subset,currentTime)
+    filename = filename.replace(":","-")
 
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
-
     toolbox = base.Toolbox()
 
     # Structure initializers
     toolbox.register("individual", tools.initRepeat, creator.Individual,
-        inst,num_attr)
-    # define the population to be a list of individuals
+        instAttribute,num_attr)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     #----------
@@ -173,11 +221,8 @@ def runGA(inst, num_attr, evaluate, test_func, pop, filename = None):
     # each individual is a list of integers)
     pop = toolbox.population(n=pop)
 
-    # CXPB  is the probability with which two individuals
-    #       are crossed
-    #
     # MUTPB is the probability for mutating an individual
-    CXPB, MUTPB = 0.5, 0.4
+    CXPB, MUTPB = 0.5, 0.2
 
     print("Start of evolution")
 
@@ -295,25 +340,8 @@ def runGA(inst, num_attr, evaluate, test_func, pop, filename = None):
     file.write("test set: %s \n " % test_func(best_ind))
     file.close()
 
-def test_subsets(k_vals,all_keys,names,classes):
-
-    subsets = ['only_pitch','only_rhythm','exclude_means',
-            'exclude_stds','exclude_song_comp','all']
-    res = str(k_vals) + "\n"
-
-    for s in subsets:
-        this_keys = keys_subset(all_keys,s)
-        weights = [1]*len(this_keys)
-        res += s + ' '
-        for k in k_vals:
-            t = perform_knn_with_loocv(weights,names,k,classes,this_keys)
-            res += "& " + str(round(t*100,1)) + " "
-        res += "\n"
-
-    return res
 
 if __name__ == "__main__":
-
     __spec__ = None
 
     num_chunks = 5
@@ -340,7 +368,6 @@ if __name__ == "__main__":
     pClassFeatureKeys = pClasses[annPClassNames[0]].classFeatures.keys()
     pClassFeatureKeys = sorted(pClassFeatureKeys)
 
-
     numpy.random.shuffle(annPClassNames)
     numpy.random.shuffle(filtGenPClassNames)
 
@@ -348,46 +375,17 @@ if __name__ == "__main__":
     gen_chunks = split_into_chunks(filtGenPClassNames,num_chunks)
     data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
 
-    def instAttribute():
-        return random.uniform(0,1)
-
-    subset = keys_subset(pClassFeatureKeys,feature_subset)
-    numAttributes = len(subset)
-    defaultWeights = numAttributes * [1]
-
+    #defaultWeights = numAttributes * [1]
     #perform_knn_with_loocv(defaultWeights,annPClassNames+filtGenPClassNames,5,pClasses,subset)
+    
+    partial_ga = functools.partial(runGA,
+        num_chunks=num_chunks,
+        feature_subset=feature_subset,
+        k_nearest=k_nearest,
+        data_sets=data_sets,
+        pClasses=pClasses
+        )
 
-    #for num_run in range(num_chunks):
-    def run_ga_by_number(num_run):
-        testPClassNames = data_sets[num_run]
-        valPClassNames = [data_sets[i] for i in range(num_chunks) if i is not num_run]
-        valPClassNames = [item for sublist in valPClassNames for item in sublist]
 
-        validateWeights = functools.partial(perform_knn_with_loocv,
-                valPatternClassNames = valPClassNames,
-                kNearest = k_nearest,
-                patternClasses = pClasses,
-                useKeys = subset
-                )
-
-        testWeights = functools.partial(perform_knn,
-                valPatternClassNames = testPClassNames,
-                trainPatternClassNames = valPClassNames,
-                kNearest = k_nearest,
-                patternClasses = pClasses,
-                useKeys = subset
-                )
-
-        #print(testWeights(defaultWeights))
-
-        #file to write results into
-        currentTime = str(datetime.datetime.now())
-        filename = "GA DATA num " + str(num_run) + " at " + currentTime + ".txt"
-        filename = "GA DATA %s,%s,%s.txt" % (num_run,feature_subset,currentTime)
-        filename = filename.replace(":","-")
-
-        runGA(instAttribute,numAttributes,validateWeights,testWeights,ga_population,filename)
-
-        pass
-
-    futures.map(run_ga_by_number, [0,1,2,3])
+    with Pool(3) as p:
+        print(p.map(partial_ga,range(num_chunks)))
