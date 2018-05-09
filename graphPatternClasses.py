@@ -8,7 +8,7 @@ Created on Thu Mar  1 14:47:22 2018
 
 import music21 as m21
 from collections import Counter
-import numpy
+import numpy as np
 import matplotlib.pyplot as plt
 
 def notes_and_occs(class_names, pClasses):
@@ -52,3 +52,6 @@ axes.set_ylim([0,85])
 plt.savefig('allgenpatclasses.eps', format='eps', dpi=1000, bbox_inches='tight')
 
 #indLengths = [ len(motifs[mn]['notes']) for mn in motifNames ]
+
+
+# HERE we compute pearson coefficients

@@ -434,8 +434,11 @@ def pearsonCoefficients(featureKeys, classNames, pClasses):
         res = scipy.stats.pearsonr(featVals,types)
         results.append((res[0],res[1],k))
 
+    res = ""
     results = sorted(results,key=lambda x: x[0])
     for r in results:
-        print(round(r[0],5),r[2])
+        temp = "\\texttt{" + r[2] + "}"
+        temp = temp.replace("_","\_")
+        res += "{:<50}  & {:1.3} \\\\ \n".format(temp,r[0])
 
-    pass
+    return res

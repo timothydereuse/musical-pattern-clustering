@@ -377,7 +377,7 @@ if __name__ == "__main__":
 
     #defaultWeights = numAttributes * [1]
     #perform_knn_with_loocv(defaultWeights,annPClassNames+filtGenPClassNames,5,pClasses,subset)
-    
+
     partial_ga = functools.partial(runGA,
         num_chunks=num_chunks,
         feature_subset=feature_subset,
