@@ -199,7 +199,7 @@ def getFeaturesForOccurrences(cur_class,songs):
     vec['pitch_pos_highest'] = noteNums.index(highest) / len(noteNums)
     vec['pitch_pos_lowest'] = noteNums.index(lowest) / len(noteNums)
     vec['interval_asc_or_desc'] = np.sign(noteNums[0] - noteNums[len(noteNums)-1])
-    vec['interval_avg_signs'] = sum(np.sign(intervals)) / len(intervals)
+    vec['interval_signs'] = sum(np.sign(intervals)) / len(intervals)
 
     #-1 if monotonically down, 1 if up, else 0
     if all([np.sign(x) == 1 for x in intervals]):

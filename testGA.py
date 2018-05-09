@@ -1,79 +1,18 @@
+
 import random
 import datetime
 import pickle
 import numpy
+import sys
 import featureExtractors as ft
 import patternClass as pc
 from collections import Counter
 from deap import base
 from deap import creator
 from deap import tools
+from timeit import default_timer as timer
 import functools
-
-def main():
-
-    print("loading data from file...")
-    with open('parsed_patterns.pik', "rb") as f:
-        dat = pickle.load(f)
-
-    songs = dat[0]
-    pClasses = dat[1]
-    pOccs = dat[2]
-    annPClassNames = dat[3]
-    annPOccNames = dat[4]
-    genPClassNames = dat[5]
-    genPOccNames = dat[6]
-    filtGenPClassNames = dat[7]
-
-    pClassFeatureKeys = pClasses[annPClassNames[0]].classFeatures.keys()
-    pClassFeatureKeys = sorted(pClassFeatureKeys)
-    num_chunks = 5
-
-    numpy.random.shuffle(annPClassNames)
-    numpy.random.shuffle(filtGenPClassNames)
-
-    ann_chunks = split_into_chunks(annPClassNames,num_chunks)
-    gen_chunks = split_into_chunks(filtGenPClassNames,num_chunks)
-    data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
-
-    def instAttribute():
-        return random.uniform(0,1)
-
-    subset = keys_subset(pClassFeatureKeys,'exclude_stds')
-    numAttributes = len(subset)
-    defaultWeights = numAttributes * [1]
-
-    for num_run in range(num_chunks):
-
-        testPClassNames = data_sets[num_run]
-        valPClassNames = [data_sets[i] for i in range(num_chunks) if i is not num_run]
-        valPClassNames = [item for sublist in valPClassNames for item in sublist]
-
-        validateWeights = functools.partial(performKNNwithLOOCV,
-                valPatternClassNames = valPClassNames,
-                kNearest = 10,
-                patternClasses = pClasses,
-                useKeys = subset
-                )
-
-        testWeights = functools.partial(performKNN,
-                valPatternClassNames = testPClassNames,
-                trainPatternClassNames = valPClassNames,
-                kNearest = 10,
-                patternClasses = pClasses,
-                useKeys = subset
-                )
-
-        #print(testWeights(defaultWeights))
-
-        #file to write results into
-        currentTime = str(datetime.datetime.now())
-        filename = "GA DATA num " + str(num_run) + " at " + currentTime + ".txt"
-        filename = filename.replace(":","-")
-
-        runGA(instAttribute,numAttributes,validateWeights,testWeights,filename)
-
-    pass
+from scoop import futures
 
 def keys_subset(all_keys,type_string):
     if type_string == 'only_pitch':
@@ -85,9 +24,11 @@ def keys_subset(all_keys,type_string):
     elif type_string == 'exclude_stds':
         return [x for x in all_keys if ('std' not in x)]
     elif type_string == 'exclude_song_comp':
-        return [x for x in all_keys if ('diff' not in x)]
-    else:
+        return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
+    elif type_string == 'all':
         return all_keys
+    else:
+        raise TypeError('bad keys_subset type ' + str(type_string))
     pass
 
 def split_into_chunks(inp,num_chunks):
@@ -101,7 +42,7 @@ def split_into_chunks(inp,num_chunks):
 
     return chunks
 
-def performKNN(weights, kNearest, trainPatternClassNames, valPatternClassNames,
+def perform_knn(weights, kNearest, trainPatternClassNames, valPatternClassNames,
                patternClasses, useKeys = None):
     """
     returns a float representing the proportion of correctly classified patternClasses
@@ -177,7 +118,7 @@ def performKNN(weights, kNearest, trainPatternClassNames, valPatternClassNames,
 
     return correctClass / len(valPatternClassNames)
 
-def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses, useKeys=None):
+def perform_knn_with_loocv(weights, valPatternClassNames, kNearest, patternClasses, useKeys=None):
     """
     a wrapper function for performKNN that performs leave-one-out
     cross-validation.
@@ -189,7 +130,7 @@ def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses,
         valNames = [valPatternClassNames[i]]
         #(valNames)
 
-        res = performKNN(weights,kNearest,trainNames,valNames,
+        res = perform_knn(weights,kNearest,trainNames,valNames,
                             patternClasses,useKeys)
         correctRuns += res
         #print(res)
@@ -197,7 +138,7 @@ def performKNNwithLOOCV(weights, valPatternClassNames, kNearest, patternClasses,
 
     return correctRuns / len(valPatternClassNames)
 
-def runGA(inst, numAttr, evaluate, test_func, filename = None):
+def runGA(inst, num_attr, evaluate, test_func, pop, filename = None):
 
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -206,7 +147,7 @@ def runGA(inst, numAttr, evaluate, test_func, filename = None):
 
     # Structure initializers
     toolbox.register("individual", tools.initRepeat, creator.Individual,
-        inst,numAttr)
+        inst,num_attr)
     # define the population to be a list of individuals
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
@@ -218,7 +159,7 @@ def runGA(inst, numAttr, evaluate, test_func, filename = None):
     toolbox.register("mate", tools.cxUniform)
 
     # register a mutation operator
-    toolbox.register("mutate", tools.mutPolynomialBounded, eta=0.4, low=0, up=1, indpb=0.06)
+    toolbox.register("mutate", tools.mutPolynomialBounded, eta=4, low=0, up=1, indpb=0.06)
     #toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
 
     # operator for selecting individuals for breeding the next
@@ -228,9 +169,9 @@ def runGA(inst, numAttr, evaluate, test_func, filename = None):
     toolbox.register("select", tools.selTournament, tournsize=3)
     #random.seed(64)
 
-    # create an initial population of 300 individuals (where
+    # create an initial population of ga_population individuals (where
     # each individual is a list of integers)
-    pop = toolbox.population(n=50)
+    pop = toolbox.population(n=pop)
 
     # CXPB  is the probability with which two individuals
     #       are crossed
@@ -319,22 +260,28 @@ def runGA(inst, numAttr, evaluate, test_func, filename = None):
         #print("  Std %s" % std)
 
         genFitArr.append(round(mean,5))
-        if( g > 5 and (max(genFitArr[-5:-1]) - min(genFitArr[-5:-1])) < 0.005 ):
-            print('convergence reached - halting evolution')
-            continue_evolving = False
+
+        #the GA converges if:
+        #- at least 8 generations have passed
+        #- the fitness difference between the best generation and the 10th
+        #  best is  below a threshold of 0.05
+        if( g > 8 ):
+            best = sorted(genFitArr)[-8:]
+            if (best[-1] - best[0] < 0.05):
+                print('convergence reached - halting evolution')
+                continue_evolving = False
 
         best_ind = tools.selBest(pop, 1)[0]
         print(str([round(x,2) for x in best_ind]) + "\n")
-        print(" test set %s " % test_func(best_ind))
-        print(genFitArr)
+        print("test set %s " % test_func(best_ind))
+        print(str(genFitArr) + "\n")
 
         file = open(filename,"a")
         file.write("  GEN. " + str(g))
-        file.write("  Min %s" % round(min(fits),6))
-        file.write("  Max %s" % round(max(fits),6))
-        file.write("  Avg %s" % round(mean,6))
-        file.write("  Std %s" % round(std,6))
-        file.write(str(best_ind))
+        file.write("  Min %s" % round(min(fits),4))
+        file.write("  Max %s" % round(max(fits),4))
+        file.write("  Avg %s" % round(mean,4))
+        file.write("  Std %s" % round(std,4))
         file.write("\n ")
         file.close()
 
@@ -343,12 +290,104 @@ def runGA(inst, numAttr, evaluate, test_func, filename = None):
     best_ind = tools.selBest(pop, 1)[0]
 
     file = open(filename,"a")
-    file.write("Best individual is %s, %s" % (best_ind, best_ind.fitness.values))
-    file.write(str(print(genFitArr)))
-    file.write(" test set: %s " % test_func(best_ind))
+    file.write("Best individual is %s, %s \n" % (best_ind, best_ind.fitness.values))
+    file.write(str(genFitArr) + "\n")
+    file.write("test set: %s \n " % test_func(best_ind))
     file.close()
 
+def test_subsets(k_vals,all_keys,names,classes):
 
+    subsets = ['only_pitch','only_rhythm','exclude_means',
+            'exclude_stds','exclude_song_comp','all']
+    res = str(k_vals) + "\n"
+
+    for s in subsets:
+        this_keys = keys_subset(all_keys,s)
+        weights = [1]*len(this_keys)
+        res += s + ' '
+        for k in k_vals:
+            t = perform_knn_with_loocv(weights,names,k,classes,this_keys)
+            res += "& " + str(round(t*100,1)) + " "
+        res += "\n"
+
+    return res
 
 if __name__ == "__main__":
-    main()
+
+    __spec__ = None
+
+    num_chunks = 5
+    ga_population = 50
+    feature_subset = 'all'
+    k_nearest = 9
+
+    if (len(sys.argv) > 1):
+        feature_subset = sys.argv[1]
+
+    print("loading data from file...")
+    with open('parsed_patterns.pik', "rb") as f:
+        dat = pickle.load(f)
+
+    songs = dat[0]
+    pClasses = dat[1]
+    pOccs = dat[2]
+    annPClassNames = dat[3]
+    annPOccNames = dat[4]
+    genPClassNames = dat[5]
+    genPOccNames = dat[6]
+    filtGenPClassNames = dat[7]
+
+    pClassFeatureKeys = pClasses[annPClassNames[0]].classFeatures.keys()
+    pClassFeatureKeys = sorted(pClassFeatureKeys)
+
+
+    numpy.random.shuffle(annPClassNames)
+    numpy.random.shuffle(filtGenPClassNames)
+
+    ann_chunks = split_into_chunks(annPClassNames,num_chunks)
+    gen_chunks = split_into_chunks(filtGenPClassNames,num_chunks)
+    data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
+
+    def instAttribute():
+        return random.uniform(0,1)
+
+    subset = keys_subset(pClassFeatureKeys,feature_subset)
+    numAttributes = len(subset)
+    defaultWeights = numAttributes * [1]
+
+    #perform_knn_with_loocv(defaultWeights,annPClassNames+filtGenPClassNames,5,pClasses,subset)
+
+    #for num_run in range(num_chunks):
+    def run_ga_by_number(num_run):
+        testPClassNames = data_sets[num_run]
+        valPClassNames = [data_sets[i] for i in range(num_chunks) if i is not num_run]
+        valPClassNames = [item for sublist in valPClassNames for item in sublist]
+
+        validateWeights = functools.partial(perform_knn_with_loocv,
+                valPatternClassNames = valPClassNames,
+                kNearest = k_nearest,
+                patternClasses = pClasses,
+                useKeys = subset
+                )
+
+        testWeights = functools.partial(perform_knn,
+                valPatternClassNames = testPClassNames,
+                trainPatternClassNames = valPClassNames,
+                kNearest = k_nearest,
+                patternClasses = pClasses,
+                useKeys = subset
+                )
+
+        #print(testWeights(defaultWeights))
+
+        #file to write results into
+        currentTime = str(datetime.datetime.now())
+        filename = "GA DATA num " + str(num_run) + " at " + currentTime + ".txt"
+        filename = "GA DATA %s,%s,%s.txt" % (num_run,feature_subset,currentTime)
+        filename = filename.replace(":","-")
+
+        runGA(instAttribute,numAttributes,validateWeights,testWeights,ga_population,filename)
+
+        pass
+
+    futures.map(run_ga_by_number, [0,1,2,3])
