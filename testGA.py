@@ -156,9 +156,9 @@ def test_subsets(k_vals,all_keys,names,classes):
 
     return res
 
-def runGA(num_run, num_chunks, feature_subset, k_nearest, data_sets, pClasses):
-    pop = 50
+def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_sets, pClasses):
 
+    #setup
     pClassFeatureKeys = list(pClasses[list(pClasses.keys())[0]].classFeatures.keys())
     subset = keys_subset(pClassFeatureKeys,feature_subset)
     num_attr = len(subset)
@@ -219,7 +219,7 @@ def runGA(num_run, num_chunks, feature_subset, k_nearest, data_sets, pClasses):
 
     # create an initial population of ga_population individuals (where
     # each individual is a list of integers)
-    pop = toolbox.population(n=pop)
+    pop = toolbox.population(n=ga_population)
 
     # MUTPB is the probability for mutating an individual
     CXPB, MUTPB = 0.5, 0.2
@@ -340,7 +340,6 @@ def runGA(num_run, num_chunks, feature_subset, k_nearest, data_sets, pClasses):
     file.write("test set: %s \n " % test_func(best_ind))
     file.close()
 
-
 if __name__ == "__main__":
     __spec__ = None
 
@@ -380,12 +379,12 @@ if __name__ == "__main__":
 
     partial_ga = functools.partial(runGA,
         num_chunks=num_chunks,
+        ga_population=ga_population,
         feature_subset=feature_subset,
         k_nearest=k_nearest,
         data_sets=data_sets,
         pClasses=pClasses
         )
 
-
-    with Pool(3) as p:
-        print(p.map(partial_ga,range(num_chunks)))
+    #with Pool(3) as p:
+    #    print(p.map(partial_ga,range(num_chunks)))

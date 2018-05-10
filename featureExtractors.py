@@ -146,7 +146,7 @@ def getFeaturesForSongs(score):
     vec['interval_probs'] = couInt
     vec['pitch_mean'] = np.mean(noteNums)
     vec['interval_mean'] = np.mean(np.abs(intervals))
-    vec['interval_avg_signs'] = sum(np.sign(intervals)) / len(intervals)
+    vec['interval_signs'] = sum(np.sign(intervals)) / len(intervals)
     vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
     vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
 
@@ -254,7 +254,7 @@ def getFeaturesForOccurrences(cur_class,songs):
             'interval_mean',
             'rhythm_variability',
             'rhythm_density',
-            'interval_avg_signs',
+            'interval_signs',
             'pitch_mean',
             'interval_prop_small',
             'interval_prop_large'
@@ -419,26 +419,3 @@ def scatterFeatures(fn1,fn2,table,tableNames):
     plt.ylabel(fn2)
     plt.show()
     return
-
-def pearsonCoefficients(featureKeys, classNames, pClasses):
-    results = []
-    for k in featureKeys:
-
-        featVals = []
-        types = []
-
-        for cn in (classNames):
-            featVals.append(pClasses[cn].classFeatures[k])
-            types.append(pClasses[cn].type == 'ann')
-
-        res = scipy.stats.pearsonr(featVals,types)
-        results.append((res[0],res[1],k))
-
-    res = ""
-    results = sorted(results,key=lambda x: x[0])
-    for r in results:
-        temp = "\\texttt{" + r[2] + "}"
-        temp = temp.replace("_","\_")
-        res += "{:<50}  & {:1.3} \\\\ \n".format(temp,r[0])
-
-    return res

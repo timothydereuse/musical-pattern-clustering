@@ -195,7 +195,7 @@ ct = 0
 for on in (annPOccNames + genPOccNames):
     pOccs[on].occFeatures = ft.getFeaturesForOccurrences(pOccs[on],songs);
     ct += 1
-    if ct % 500 == 0:
+    if ct % 1000 == 0:
         print("   completed " + str(ct) + "/" +  str(totalOccs))
 
 print('computing features on pattern classes...')
