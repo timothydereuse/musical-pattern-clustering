@@ -96,7 +96,7 @@ def my_model(features, labels, mode, params):
 
 def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses):
     trainSteps = 2000
-    batchSize = 50
+    batchSize = 100
 
     pClassFeatureKeys = list(pClasses[list(pClasses.keys())[0]].classFeatures.keys())
     subset = ft.keys_subset(pClassFeatureKeys,feature_subset)
@@ -131,7 +131,7 @@ def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses)
         model_fn=my_model,
         params={
             'feature_columns': my_feature_columns,
-            'hidden_units': [5, 5],
+            'hidden_units': [5,5],
             'n_classes': 2,
         })
 
