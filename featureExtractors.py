@@ -388,6 +388,34 @@ def filterPClassesWithKNN(annPClassNames,genPClassNames,kNearest,
 
     return filtGenPClassNames
 
+def keys_subset(all_keys,type_string):
+    if type_string == 'only_pitch':
+        return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
+    elif type_string == 'only_rhythm':
+        return [x for x in all_keys if ('rhythm' in x)]
+    elif type_string == 'exclude_means':
+        return [x for x in all_keys if ('avg' not in x)]
+    elif type_string == 'exclude_stds':
+        return [x for x in all_keys if ('std' not in x)]
+    elif type_string == 'exclude_song_comp':
+        return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
+    elif type_string == 'all':
+        return all_keys
+    else:
+        raise TypeError('bad keys_subset type ' + str(type_string))
+    pass
+
+def split_into_chunks(inp,num_chunks):
+
+    chunk_len = int(np.floor(len(inp) / num_chunks))
+    chunks = [inp[i:i + chunk_len] for i in range(0, len(inp), chunk_len)]
+    if len(chunks) > num_chunks:
+        for i,x in enumerate(chunks[num_chunks]):
+            chunks[i].append(x)
+        del chunks[num_chunks]
+
+    return chunks
+
 #just for testing: get all features
 #plt.plot(sorted(inspectFeature('classAvg_pitch_mean',pClasses,genPClassNames + annPClassNames)))
 def inspectFeature(featureName,table,tableNames,featsType="classFeatures"):

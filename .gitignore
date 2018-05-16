@@ -1,8 +1,10 @@
 parsed_patterns.pik
 GA DATA**
+NN RUN**
 testimg**
 partest.py
 testPickle.pik
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

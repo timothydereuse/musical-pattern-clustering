@@ -2,7 +2,7 @@
 import random
 import datetime
 import pickle
-import numpy
+import numpy as np
 import sys
 import featureExtractors as ft
 import patternClass as pc
@@ -15,33 +15,38 @@ import functools
 from scoop import futures
 from multiprocessing import Pool
 
-def keys_subset(all_keys,type_string):
-    if type_string == 'only_pitch':
-        return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
-    elif type_string == 'only_rhythm':
-        return [x for x in all_keys if ('rhythm' in x)]
-    elif type_string == 'exclude_means':
-        return [x for x in all_keys if ('avg' not in x)]
-    elif type_string == 'exclude_stds':
-        return [x for x in all_keys if ('std' not in x)]
-    elif type_string == 'exclude_song_comp':
-        return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
-    elif type_string == 'all':
-        return all_keys
-    else:
-        raise TypeError('bad keys_subset type ' + str(type_string))
-    pass
+from importlib import reload
 
-def split_into_chunks(inp,num_chunks):
+reload(pc)
+reload(ft)
 
-    chunk_len = int(numpy.floor(len(inp) / num_chunks))
-    chunks = [inp[i:i + chunk_len] for i in range(0, len(inp), chunk_len)]
-    if len(chunks) > num_chunks:
-        for i,x in enumerate(chunks[num_chunks]):
-            chunks[i].append(x)
-        del chunks[num_chunks]
-
-    return chunks
+# def keys_subset(all_keys,type_string):
+#     if type_string == 'only_pitch':
+#         return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
+#     elif type_string == 'only_rhythm':
+#         return [x for x in all_keys if ('rhythm' in x)]
+#     elif type_string == 'exclude_means':
+#         return [x for x in all_keys if ('avg' not in x)]
+#     elif type_string == 'exclude_stds':
+#         return [x for x in all_keys if ('std' not in x)]
+#     elif type_string == 'exclude_song_comp':
+#         return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
+#     elif type_string == 'all':
+#         return all_keys
+#     else:
+#         raise TypeError('bad keys_subset type ' + str(type_string))
+#     pass
+#
+# def split_into_chunks(inp,num_chunks):
+#
+#     chunk_len = int(np.floor(len(inp) / num_chunks))
+#     chunks = [inp[i:i + chunk_len] for i in range(0, len(inp), chunk_len)]
+#     if len(chunks) > num_chunks:
+#         for i,x in enumerate(chunks[num_chunks]):
+#             chunks[i].append(x)
+#         del chunks[num_chunks]
+#
+#     return chunks
 
 def perform_knn(weights, kNearest, trainPatternClassNames, valPatternClassNames,
                patternClasses, useKeys = None):
@@ -160,7 +165,7 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
 
     #setup
     pClassFeatureKeys = list(pClasses[list(pClasses.keys())[0]].classFeatures.keys())
-    subset = keys_subset(pClassFeatureKeys,feature_subset)
+    subset = ft.keys_subset(pClassFeatureKeys,feature_subset)
     num_attr = len(subset)
 
     instAttribute = functools.partial(random.uniform,0,1)
@@ -367,11 +372,11 @@ if __name__ == "__main__":
     pClassFeatureKeys = pClasses[annPClassNames[0]].classFeatures.keys()
     pClassFeatureKeys = sorted(pClassFeatureKeys)
 
-    numpy.random.shuffle(annPClassNames)
-    numpy.random.shuffle(filtGenPClassNames)
+    np.random.shuffle(annPClassNames)
+    np.random.shuffle(filtGenPClassNames)
 
-    ann_chunks = split_into_chunks(annPClassNames,num_chunks)
-    gen_chunks = split_into_chunks(filtGenPClassNames,num_chunks)
+    ann_chunks = ft.split_into_chunks(annPClassNames,num_chunks)
+    gen_chunks = ft.split_into_chunks(filtGenPClassNames,num_chunks)
     data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
 
     #defaultWeights = numAttributes * [1]
