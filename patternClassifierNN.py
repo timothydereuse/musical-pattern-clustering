@@ -1,17 +1,5 @@
-#  Copyright 2016 The TensorFlow Authors. All Rights Reserved.
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-"""An Example of a DNNClassifier for the Iris dataset."""
+# python patternClassifierNN.py all; python patternClassifierNN.py exclude_stds; python patternClassifierNN.py exclude_means; python patternClassifierNN.py exclude_song_comp; python patternClassifierNN.py only_pitch; python patternClassifierNN.py only_rhythm;
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -58,7 +46,7 @@ def my_model(features, labels, mode, params):
 
     net = tf.feature_column.input_layer(features, params['feature_columns'])
     for units in params['hidden_units']:
-        net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
+        net = tf.layers.dense(net, units=units, activation=tf.sigmoid)
 
     # Compute logits (1 per class).
     logits = tf.layers.dense(net, params['n_classes'], activation=None)
@@ -95,7 +83,7 @@ def my_model(features, labels, mode, params):
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses):
-    trainSteps = 2000
+    trainSteps = 1000
     batchSize = 100
 
     pClassFeatureKeys = list(pClasses[list(pClasses.keys())[0]].classFeatures.keys())
@@ -131,7 +119,7 @@ def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses)
         model_fn=my_model,
         params={
             'feature_columns': my_feature_columns,
-            'hidden_units': [5,5],
+            'hidden_units': [6,6],
             'n_classes': 2,
         })
 
@@ -148,7 +136,6 @@ def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses)
 
     print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result))
     return eval_result['accuracy']
-
 
 if __name__ == "__main__":
 
@@ -190,7 +177,7 @@ if __name__ == "__main__":
     rawTestLabels = []
 
     currentTime = str(datetime.datetime.now())
-    filename = "NN RUN %s,%s.txt" % (feature_subset,currentTime)
+    filename = "NN RUN %s,%s 500 runs.txt" % (feature_subset,currentTime)
     filename = filename.replace(":","-")
 
     accs = []
@@ -199,10 +186,10 @@ if __name__ == "__main__":
                                     data_sets, pClasses)
         accs.append(res)
 
-    file = open(filename,"a")
-    file.write("all: %s \n" % str(accs))
-    file.write("mean: %s \n" % np.mean(accs))
-    file.write("std: %s \n" % np.std(accs))
-    tmp = np.std(accs) / np.sqrt(num_chunks)
-    file.write("stderr: %s \n" % tmp)
-    file.close()
+    # file = open(filename,"a")
+    # file.write("all: %s \n" % str(accs))
+    # file.write("mean: %s \n" % np.mean(accs))
+    # file.write("std: %s \n" % np.std(accs))
+    # tmp = np.std(accs) / np.sqrt(num_chunks)
+    # file.write("stderr: %s \n" % tmp)
+    # file.close()

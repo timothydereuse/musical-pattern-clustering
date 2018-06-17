@@ -4,6 +4,7 @@ import datetime
 import pickle
 import numpy as np
 import sys
+import time
 import featureExtractors as ft
 import patternClass as pc
 from collections import Counter
@@ -13,7 +14,7 @@ from deap import tools
 from timeit import default_timer as timer
 import functools
 from scoop import futures
-from multiprocessing import Pool
+#from multiprocessing import Pool
 
 from importlib import reload
 
@@ -124,17 +125,22 @@ def perform_knn(weights, kNearest, trainPatternClassNames, valPatternClassNames,
 
     return correctClass / len(valPatternClassNames)
 
-def perform_knn_with_loocv(weights, valPatternClassNames, kNearest, patternClasses, useKeys=None):
+def perform_knn_with_loocv(weights, valPatternClassNames, kNearest,
+        patternClasses, useKeys=None, run_fraction = 1):
     """
     a wrapper function for performKNN that performs leave-one-out
     cross-validation.
     """
     correctRuns = 0;
 
-    for i in range(len(valPatternClassNames)):
+    indices_to_test = list(range(len(valPatternClassNames)))
+    num_tests = round(run_fraction * len(valPatternClassNames))
+    if run_fraction < 1:
+        indices_to_test = random.sample(indices_to_test,num_tests)
+
+    for i in indices_to_test:
         trainNames = valPatternClassNames[:i] + valPatternClassNames[(i+1):]
         valNames = [valPatternClassNames[i]]
-        #(valNames)
 
         res = perform_knn(weights,kNearest,trainNames,valNames,
                             patternClasses,useKeys)
@@ -142,7 +148,7 @@ def perform_knn_with_loocv(weights, valPatternClassNames, kNearest, patternClass
         #print(res)
 
 
-    return correctRuns / len(valPatternClassNames)
+    return correctRuns / num_tests
 
 def test_subsets(k_vals,all_keys,names,classes):
 
@@ -161,7 +167,24 @@ def test_subsets(k_vals,all_keys,names,classes):
 
     return res
 
-def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_sets, pClasses):
+def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
+    data_sets, pClasses, time_limit = -1, convergence_thresh = 0.001):
+    """
+    num_run: integer <= num_chunks, says which member of data_sets to use for
+        testing. the rest will be concatenated used for training
+    ga_population: population to use for the GA
+    mutation_prob: probability for an individual to undergo mutation
+    k_nearest: value of K to use in the KNN
+    feature_subset: feature category to operate on
+    data_sets: list of lists containing data sets split into test and train
+    pClasses: master pattern classes variable
+    time_limit: time in seconds to run this test for; ends on first generation
+        that finishes testing after the time specified has elapsed
+    convergence_thresh: tolerance before convergence assumed
+    """
+
+    # CXPB = CROSSOVER LIKELIHOOD
+    CXPB = 0.5
 
     #setup
     pClassFeatureKeys = list(pClasses[list(pClasses.keys())[0]].classFeatures.keys())
@@ -170,6 +193,7 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
 
     instAttribute = functools.partial(random.uniform,0,1)
 
+    num_chunks = len(data_sets)
     test_pat_names = data_sets[num_run]
     valPClassNames = [data_sets[i] for i in range(num_chunks) if i is not num_run]
     valPClassNames = [item for sublist in valPClassNames for item in sublist]
@@ -178,7 +202,8 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
             valPatternClassNames = valPClassNames,
             kNearest = k_nearest,
             patternClasses = pClasses,
-            useKeys = subset
+            useKeys = subset,
+            run_fraction = 0.7
             )
 
     test_func = functools.partial(perform_knn,
@@ -212,7 +237,7 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
     toolbox.register("mate", tools.cxUniform)
 
     # register a mutation operator
-    toolbox.register("mutate", tools.mutPolynomialBounded, eta=4, low=0, up=1, indpb=0.06)
+    toolbox.register("mutate", tools.mutPolynomialBounded, eta=5, low=0, up=1, indpb=1)
     #toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
 
     # operator for selecting individuals for breeding the next
@@ -226,21 +251,14 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
     # each individual is a list of integers)
     pop = toolbox.population(n=ga_population)
 
-    # MUTPB is the probability for mutating an individual
-    CXPB, MUTPB = 0.5, 0.2
 
     print("Start of evolution")
-
     # Evaluate the entire population
     fitnesses = [(toolbox.evaluate(weights=x),) for x in pop]
-    #fitnesses = toolbox.map(toolbox.evaluate,pop)
-
     for ind, fit in zip(pop, fitnesses):
         ind.fitness.values = fit
 
-    print("  Evaluated %i individuals" % len(pop))
-
-    # Extracting all the fitnesses of
+    # Extracting all fitnesses
     fits = [ind.fitness.values[0] for ind in pop]
 
     # Variable keeping track of the number of generations
@@ -250,6 +268,7 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
     genFitArr = []
 
     continue_evolving = True
+    start_time = time.time()
 
     # Begin the evolution
     while g < 10000 and continue_evolving:
@@ -262,7 +281,7 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
         # Clone the selected individuals
         offspring = list(map(toolbox.clone, offspring))
 
-        # Apply crossover and mutation on the offspring
+        # Apply crossover on the offspring
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
 
             # cross two individuals with probability CXPB
@@ -274,24 +293,22 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
                 del child1.fitness.values
                 del child2.fitness.values
 
+        # Apply mutation on the offspring
         for mutant in offspring:
 
-            # mutate an individual with probability MUTPB
-            if random.random() < MUTPB:
+            # mutate an individual with probability mutation_prob
+            if random.random() < mutation_prob:
                 toolbox.mutate(mutant)
                 del mutant.fitness.values
 
-        # Evaluate the individuals with an invalid fitness
+        # Evaluate the individuals whose fitness is not known
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        #fitnesses = map(toolbox.evaluate, invalid_ind)
         fitnesses = [(toolbox.evaluate(weights=x),) for x in invalid_ind]
-        #fitnesses = parallel(delayed(toolbox.evaluate)(weights=x) for x in invalid_ind)
-
 
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-        print("  Evaluated %i individuals" % len(invalid_ind))
+        print("Evaluated %i individuals" % len(invalid_ind))
 
         # The population is entirely replaced by the offspring
         pop[:] = offspring
@@ -314,17 +331,23 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
         #the GA converges if:
         #- at least 8 generations have passed
         #- the fitness difference between the best generation and the 10th
-        #  best is  below a threshold of 0.05
+        #  best is  below a threshold of convergence_thresh
         if( g > 8 ):
             best = sorted(genFitArr)[-8:]
-            if (best[-1] - best[0] < 0.05):
+            if (best[-1] - best[0] < convergence_thresh):
                 print('convergence reached - halting evolution')
                 continue_evolving = False
 
+        #if we've gone past the time limit, then stop evolving
+        elapsed_time = time.time() - start_time
+        if(elapsed_time > time_limit):
+            print('time limit reached - halting evolution')
+            continue_evolving = False
+
         best_ind = tools.selBest(pop, 1)[0]
         print(str([round(x,2) for x in best_ind]) + "\n")
-        print("test set %s " % test_func(best_ind))
-        print(str(genFitArr) + "\n")
+        #print("test set %s " % test_func(best_ind))
+        #print(str(genFitArr) + "\n")
 
         file = open(filename,"a")
         file.write("  GEN. " + str(g))
@@ -345,13 +368,25 @@ def runGA(num_run, ga_population, num_chunks, feature_subset, k_nearest, data_se
     file.write("test set: %s \n " % test_func(best_ind))
     file.close()
 
+def loocv_testing(k_vals,subset_name):
+
+    keys = keys_subset(pClassFeatureKeys,subset_name)
+    defaultWeights = len(keys) * [1]
+    s = ''
+    for k in k_vals:
+        res = perform_knn_with_loocv(defaultWeights,annPClassNames+filtGenPClassNames,k,pClasses,keys)
+        s += "& " + str(round(res*100,1)) + " "
+        #print('result for ' + str(k) + ': ' + str(round(res*100,1)))
+    return s
+
 if __name__ == "__main__":
     __spec__ = None
 
     num_chunks = 5
-    ga_population = 50
+    ga_population = 25
+    mutation_prob  = 0.01
     feature_subset = 'all'
-    k_nearest = 9
+    k_nearest = 15
 
     if (len(sys.argv) > 1):
         feature_subset = sys.argv[1]
@@ -379,17 +414,15 @@ if __name__ == "__main__":
     gen_chunks = ft.split_into_chunks(filtGenPClassNames,num_chunks)
     data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
 
-    #defaultWeights = numAttributes * [1]
-    #perform_knn_with_loocv(defaultWeights,annPClassNames+filtGenPClassNames,5,pClasses,subset)
-
     partial_ga = functools.partial(runGA,
-        num_chunks=num_chunks,
         ga_population=ga_population,
+        mutation_prob=mutation_prob,
         feature_subset=feature_subset,
         k_nearest=k_nearest,
         data_sets=data_sets,
         pClasses=pClasses
         )
 
+    print(partial_ga(num_run=3,time_limit=60*10))
     #with Pool(3) as p:
     #    print(p.map(partial_ga,range(num_chunks)))
