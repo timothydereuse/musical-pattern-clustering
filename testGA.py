@@ -399,6 +399,7 @@ if __name__ == "__main__":
 
     if (len(sys.argv) > 1):
         feature_subset = sys.argv[1]
+        ga_population = int(sys.argv[2])
 
     print("loading data from file...")
     with open('parsed_patterns.pik', "rb") as f:
@@ -434,9 +435,9 @@ if __name__ == "__main__":
         num_run=3
         )
 
-    print( partial_ga(ga_population=2000,mutation_prob=0.01) )
-    print( partial_ga(ga_population=2000,mutation_prob=0.02) )
-    print( partial_ga(ga_population=2000,mutation_prob=0.04) )
-    print( partial_ga(ga_population=2000,mutation_prob=0.08) )
+    print( partial_ga(ga_population=ga_population,mutation_prob=0.01) )
+    print( partial_ga(ga_population=ga_population,mutation_prob=0.02) )
+    print( partial_ga(ga_population=ga_population,mutation_prob=0.04) )
+    print( partial_ga(ga_population=ga_population,mutation_prob=0.08) )
     #with Pool(3) as p:
     #    print(p.map(partial_ga,range(num_chunks)))
