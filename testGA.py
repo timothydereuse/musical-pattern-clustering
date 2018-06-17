@@ -220,6 +220,17 @@ def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
     filename = "GA DATA %s,%s,%s.txt" % (num_run,feature_subset,currentTime)
     filename = filename.replace(":","-")
 
+    file = open(filename,"a")
+    file.write("  feature_subset " + feature_subset )
+    file.write("  num_run %s" % num_run)
+    file.write("  ga_population %s" % ga_population)
+    file.write("  mutation_prob %s" % mutation_prob)
+    file.write("  k_nearest %s" % k_nearest)
+    file.write("  time_limit %s" % time_limit)
+    file.write("  convergence_thresh %s" % convergence_thresh)
+    file.write("\n ")
+    file.close()
+
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
     toolbox = base.Toolbox()
@@ -241,16 +252,12 @@ def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
     #toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
 
     # operator for selecting individuals for breeding the next
-    # generation: each individual of the current generation
-    # is replaced by the 'fittest' (best) of three individuals
-    # drawn randomly from the current generation.
+    # generation
     toolbox.register("select", tools.selTournament, tournsize=3)
-    #random.seed(64)
 
     # create an initial population of ga_population individuals (where
     # each individual is a list of integers)
     pop = toolbox.population(n=ga_population)
-
 
     print("Start of evolution")
     # Evaluate the entire population
@@ -332,8 +339,8 @@ def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
         #- at least 8 generations have passed
         #- the fitness difference between the best generation and the 10th
         #  best is  below a threshold of convergence_thresh
-        if( g > 8 ):
-            best = sorted(genFitArr)[-8:]
+        if( g > 10 ):
+            best = sorted(genFitArr)[-10:]
             if (best[-1] - best[0] < convergence_thresh):
                 print('convergence reached - halting evolution')
                 continue_evolving = False
@@ -367,6 +374,8 @@ def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
     file.write(str(genFitArr) + "\n")
     file.write("test set: %s \n " % test_func(best_ind))
     file.close()
+
+    return genFitArr
 
 def loocv_testing(k_vals,subset_name):
 
@@ -415,14 +424,19 @@ if __name__ == "__main__":
     data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
 
     partial_ga = functools.partial(runGA,
-        ga_population=ga_population,
-        mutation_prob=mutation_prob,
+        #ga_population=ga_population,
+        #mutation_prob=mutation_prob,
         feature_subset=feature_subset,
         k_nearest=k_nearest,
         data_sets=data_sets,
-        pClasses=pClasses
+        pClasses=pClasses,
+        time_limit=60*2,
+        num_run=3
         )
 
-    print(partial_ga(num_run=3,time_limit=60*10))
+    print( partial_ga(ga_population=2000,mutation_prob=0.01) )
+    print( partial_ga(ga_population=2000,mutation_prob=0.02) )
+    print( partial_ga(ga_population=2000,mutation_prob=0.04) )
+    print( partial_ga(ga_population=2000,mutation_prob=0.08) )
     #with Pool(3) as p:
     #    print(p.map(partial_ga,range(num_chunks)))
