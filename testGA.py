@@ -191,7 +191,7 @@ def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
     subset = ft.keys_subset(pClassFeatureKeys,feature_subset)
     num_attr = len(subset)
 
-    instAttribute = functools.partial(random.uniform,0,1)
+    instAttribute = functools.partial(random.choice,[0,1])
 
     num_chunks = len(data_sets)
     test_pat_names = data_sets[num_run]
@@ -249,7 +249,7 @@ def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
 
     # register a mutation operator
     toolbox.register("mutate", tools.mutPolynomialBounded, eta=5, low=0, up=1, indpb=1)
-    #toolbox.register("mutate", tools.mutUniformInt, low=0, up=32, indpb=0.06)
+    #toolbox.register("mutate", tools.mutFlipBit, indpb=0.1)
 
     # operator for selecting individuals for breeding the next
     # generation
@@ -336,18 +336,18 @@ def runGA(num_run, ga_population, mutation_prob, k_nearest, feature_subset,
         genFitArr.append(round(mean,5))
 
         #the GA converges if:
-        #- at least 8 generations have passed
-        #- the fitness difference between the best generation and the 10th
+        #- at least n generations have passed
+        #- the fitness difference between the best generation and the nth
         #  best is  below a threshold of convergence_thresh
-        if( g > 10 ):
-            best = sorted(genFitArr)[-10:]
+        if( g > 15 ):
+            best = sorted(genFitArr)[-14:]
             if (best[-1] - best[0] < convergence_thresh):
                 print('convergence reached - halting evolution')
                 continue_evolving = False
 
         #if we've gone past the time limit, then stop evolving
         elapsed_time = time.time() - start_time
-        if(elapsed_time > time_limit):
+        if(time_limit > 0 and elapsed_time > time_limit):
             print('time limit reached - halting evolution')
             continue_evolving = False
 
@@ -431,13 +431,11 @@ if __name__ == "__main__":
         k_nearest=k_nearest,
         data_sets=data_sets,
         pClasses=pClasses,
-        time_limit=60*2,
+        time_limit=-1,
         num_run=3
         )
 
     print( partial_ga(ga_population=ga_population,mutation_prob=0.01) )
-    print( partial_ga(ga_population=ga_population,mutation_prob=0.02) )
-    print( partial_ga(ga_population=ga_population,mutation_prob=0.04) )
-    print( partial_ga(ga_population=ga_population,mutation_prob=0.08) )
+
     #with Pool(3) as p:
     #    print(p.map(partial_ga,range(num_chunks)))

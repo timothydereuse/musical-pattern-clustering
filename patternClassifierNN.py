@@ -10,6 +10,7 @@ import featureExtractors as ft
 import pickle
 import numpy as np
 import sys
+import itertools
 
 def train_input_fn(features, labels, batch_size):
     """An input function for training"""
@@ -82,18 +83,22 @@ def my_model(features, labels, mode, params):
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
-def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses):
-    trainSteps = 1000
+def train_and_test_knn(num_run, feature_subset, data_sets, pClasses,
+        num_layers = 2, units_per_layer = 4, train_epochs = 1000):
+    train_epochs = 1000
     batchSize = 100
 
     pClassFeatureKeys = list(pClasses[list(pClasses.keys())[0]].classFeatures.keys())
     subset = ft.keys_subset(pClassFeatureKeys,feature_subset)
 
     #get current test and train sets from the run num
+    num_chunks = len(data_sets)
     test_pat_names = data_sets[num_run]
     val_pat_names = [data_sets[i] for i in range(num_chunks) if i is not num_run]
     val_pat_names = [item for sublist in val_pat_names for item in sublist]
 
+    rawTrainFeats = {}
+    rawTestFeats = {}
     # need to get a dictionary where every feature is a key, and every value is
     # an array containing an ordered list of feature values for the current set.
     for k in (subset):
@@ -119,7 +124,7 @@ def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses)
         model_fn=my_model,
         params={
             'feature_columns': my_feature_columns,
-            'hidden_units': [6,6],
+            'hidden_units': [units_per_layer]*num_layers,
             'n_classes': 2,
         })
 
@@ -127,7 +132,7 @@ def train_and_test_knn(num_run, num_chunks, feature_subset, data_sets, pClasses)
     classifier.train(
         input_fn=lambda:train_input_fn(rawTrainFeats, rawTrainLabels,
                                        batchSize),
-        steps=trainSteps)
+        steps=train_epochs)
 
     # Evaluate the model.
     eval_result = classifier.evaluate(
@@ -171,25 +176,34 @@ if __name__ == "__main__":
     gen_chunks = ft.split_into_chunks(filtGenPClassNames,num_chunks)
     data_sets = [ann_chunks[i] + gen_chunks[i] for i in range(num_chunks)]
 
-    rawTrainFeats = {}
-    rawTrainLabels = []
-    rawTestFeats = {}
-    rawTestLabels = []
-
     currentTime = str(datetime.datetime.now())
-    filename = "NN RUN %s,%s 500 runs.txt" % (feature_subset,currentTime)
+    filename = "NN RUN %s,%s .txt" % (feature_subset,currentTime)
     filename = filename.replace(":","-")
 
-    accs = []
-    for num_run in range(num_chunks):
-        res = train_and_test_knn(num_run, num_chunks, feature_subset,
-                                    data_sets, pClasses)
-        accs.append(res)
+    num_layers_vals = [1,2,3,4]
+    units_per_layer_vals = [5,10,15,20]
+    params = list(itertools.product(num_layers_vals,units_per_layer_vals))
 
-    # file = open(filename,"a")
-    # file.write("all: %s \n" % str(accs))
-    # file.write("mean: %s \n" % np.mean(accs))
-    # file.write("std: %s \n" % np.std(accs))
-    # tmp = np.std(accs) / np.sqrt(num_chunks)
-    # file.write("stderr: %s \n" % tmp)
-    # file.close()
+    for p in params:
+
+        accs = []
+        for num_run in range(num_chunks):
+            res = train_and_test_knn(
+                num_run=num_run,
+                feature_subset=feature_subset,
+                data_sets=data_sets,
+                pClasses=pClasses,
+                num_layers = p[0],
+                units_per_layer = p[1],
+                train_epochs = 2000
+                )
+            accs.append(res)
+
+        file = open(filename,"a")
+        file.write("num_layers %i units per layer: %i train_epochs: %i \n" % (p[0], p[1], 2000))
+        file.write("all: %s \n" % str(accs))
+        file.write("mean: %f \n" % np.mean(accs))
+        file.write("std: %f \n" % np.std(accs))
+        tmp = np.std(accs) / np.sqrt(num_chunks)
+        file.write("stderr: %f \n\n" % tmp)
+        file.close()
