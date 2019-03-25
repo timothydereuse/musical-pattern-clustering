@@ -24,36 +24,51 @@ class ConvNet(nn.Module):
         layer1_chan = 50
 
         layer2_chan = 50
-        hidden_layer = 500
+        hidden_layer = 200
 
-        def get_new_size(self, old_size, padding, dilation, kernel_size, stride):
+        conv1_kwargs = {'kernel_size':5, 'stride':1, 'padding':4, 'dilation':2}
+        max1_kwargs = {'kernel_size':2, 'stride':2}
+
+        conv2_kwargs = {'kernel_size':5, 'stride':1, 'padding':4, 'dilation':1}
+        max2_kwargs = max1_kwargs
+
+        def get_new_size(old_size, kernel_size=3, padding=0, dilation=1, stride=None):
+
+            if type(kernel_size) is not tuple:
+                kernel_size = (kernel_size, kernel_size)
+            if not stride:
+                stride = kernel_size
+            if type(stride) is not tuple:
+                stride = (stride, stride)
+            if type(padding) is not tuple:
+                padding = (padding, padding)
+            if type(dilation) is not tuple:
+                dilation = (dilation, dilation)
+
+            # print(kernel_size, stride, padding, dilation)
+
             h_out = (old_size[0] + (2 * padding[0]) - (dilation[0] * (kernel_size[0] - 1)) - 1) / (stride[0]) + 1
             v_out = (old_size[1] + (2 * padding[1]) - (dilation[1] * (kernel_size[1] - 1)) - 1) / (stride[1]) + 1
             return int(np.floor(h_out)), int(np.floor(v_out))
 
-        # to start, input = img_size**2 * (1 channel)
-
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, layer1_chan, kernel_size=5, stride=1, padding=4, dilation=2),
+            nn.Conv2d(1, layer1_chan, **conv1_kwargs),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
+            nn.MaxPool2d(**max1_kwargs)
         )
-        # now input = (img_size / 2) * (layer1_chan)
-
         self.layer2 = nn.Sequential(
-            nn.Conv2d(layer1_chan, layer2_chan, kernel_size=5, stride=1, padding=2),
+            nn.Conv2d(layer1_chan, layer2_chan, **conv2_kwargs),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
+            nn.MaxPool2d(**max2_kwargs)
         )
-        #self.layer1_size = get_new_size(layer1_size, kernel_size=5, stride=1, padding=4, dilation=2)
-
         self.drop_out = nn.Dropout()
 
-        # now input = (img_size / 4)**2 * (layer2_chan)
-        # not entirely sure yet how stride and padding affect the size of the layers;
-        # changing them breaks the following line
+        new_size = get_new_size(img_size, **conv1_kwargs)
+        new_size = get_new_size(new_size, **max1_kwargs)
+        new_size = get_new_size(new_size, **conv2_kwargs)
+        new_size = get_new_size(new_size, **max2_kwargs)
 
-        self.fc1 = nn.Linear((img_size[0] // 4) * (img_size[1] // 4) * layer2_chan, hidden_layer)
+        self.fc1 = nn.Linear(new_size[0] * new_size[1] * layer2_chan, hidden_layer)
         self.fc2 = nn.Linear(hidden_layer, out_size)
 
     def forward(self, x):
