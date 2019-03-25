@@ -49,7 +49,7 @@ def get_roll_from_class(p_class, pOccs, bounds):
 
     return roll
 
-def assemble_rolls():
+def assemble_rolls(normalize=True):
     print("loading data from file...")
     with open('parsed_patterns.pik', "rb") as f:
         dat = pickle.load(f)
@@ -70,6 +70,10 @@ def assemble_rolls():
 
     for i, cn in enumerate(pClasses.keys()):
         roll = get_roll_from_class(pClasses[cn], pOccs, bounds)
+
+        if normalize:
+            roll = np.array(roll) / max(roll.ravel())
+
         pClasses[cn].classFeatures = roll
         data.append(roll)
         labels.append(int(pClasses[cn].type == 'ann'))
