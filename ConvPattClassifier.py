@@ -21,6 +21,7 @@ num_validation_sets = 4
 num_categories = 2
 learning_rate = 2e-4
 
+
 def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000, stagnation_time=500):
 
     proportion_positive = (sum(labels) + 1) / (len(labels) + 1)
@@ -82,6 +83,7 @@ def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000
 
     return model
 
+
 def calculate_stats(correct, predicted, round_to=3):
     true_positive = sum((correct == 1) & (predicted == 1))
     true_negative = sum((correct == 0) & (predicted == 0))
@@ -97,6 +99,7 @@ def calculate_stats(correct, predicted, round_to=3):
 
     ret = np.round((recall, precision, F1), round_to)
     return ret
+
 
 # load some data
 print('loading data...')
@@ -120,7 +123,7 @@ y_all = torch.tensor(train_labels).long()
 idx_shuffle = np.array(range(num_train))
 np.random.shuffle(idx_shuffle)
 set_idxs = np.array_split(idx_shuffle, num_validation_sets)
-
+quit()
 cross_val_results = []
 for run_num in range(num_validation_sets):
 

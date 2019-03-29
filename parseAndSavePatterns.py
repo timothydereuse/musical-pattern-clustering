@@ -20,6 +20,7 @@ from importlib import reload
 reload(pc)
 reload(ft)
 
+
 def class_similarity(cl1, cl2, pOccs):
     def get_identifiers(occ_names):
         ret = []
@@ -35,22 +36,23 @@ def class_similarity(cl1, cl2, pOccs):
     similarity = (sect_amt / min_size)
     return similarity
 
-### FILE SETUP, FETCH DATA
-### -----------------------
+
+## FILE SETUP, FETCH DATA
+## -----------------------
 thisFileDir = os.path.dirname(os.path.realpath('__file__'))
 genPatternsfileDir = os.path.join(thisFileDir, 'genpatterns')
 fileDir = os.path.join(thisFileDir, 'MTC-ANN-2.0.1/krn')
 annFile = os.path.join(thisFileDir, 'MTC-ANN-2.0.1/metadata/MTC-ANN-motifs.csv')
 tuneFamFile = os.path.join(thisFileDir, 'MTC-ANN-2.0.1/metadata/MTC-ANN-tune-family-labels.csv')
 
-#get all parsed pattern files
+# get all parsed pattern files
 genPatternFiles = []
 for root, dirs, files in os.walk(genPatternsfileDir):
     for file in files:
         if file.endswith('_patterns.txt'):
             genPatternFiles.append(os.path.join(genPatternsfileDir,file))
 
-#get all the song files into songNames, sort them
+# get all the song files into songNames, sort them
 songNames = []
 for root, dirs, files in os.walk(fileDir):
     for file in files:
@@ -58,10 +60,10 @@ for root, dirs, files in os.walk(fileDir):
             songNames.append(file[:-4])
 songNames = sorted(songNames)
 
-#make dictionary linking filenames -> songs of each score
+# make dictionary linking filenames -> songs of each score
 print("fetching song scores...")
 songs = {}
-for i in range(0,len(songNames)):
+for i in range(0, len(songNames)):
     f = songNames[i]
     # songs[f] = {
     #         'score': m21.converter.parse(os.path.join(fileDir, f) + ".krn"),
@@ -84,7 +86,7 @@ annPClassNames = [] #'annotated patterns'
 annPOccNames = []
 annPTable = [];
 
-#get entire generated pattern files and concatenate them into one big table
+# get entire generated pattern files and concatenate them into one big table
 
 for gpf in genPatternFiles:
     with open(gpf, 'r') as fp:
@@ -93,7 +95,7 @@ for gpf in genPatternFiles:
         curFileTable = [row for row in reader]
         genPTable = genPTable + curFileTable
 
-#get entire annotated pattern file
+# get entire annotated pattern file
 with open(annFile, 'r') as fp:
     reader = csv.reader(fp, delimiter=',', quotechar='"')
     annPTable = [row for row in reader]
@@ -101,35 +103,35 @@ with open(annFile, 'r') as fp:
 ### EXTRACT PATTERN OCCURRENCES, SET UP OCCURRENCE TABLE
 ### --------------------------------------------------
 
-#get unique set of pattern class names
+# get unique set of pattern class names
 genPClassNames = sorted(list(set([entr[0] for entr in genPTable])))
 annPClassNames = sorted(list(set([entr[9] for entr in annPTable])))
 allClassNames = annPClassNames + genPClassNames
 
-#initialize dict structure for each class name. compute features later
+# initialize dict structure for each class name. compute features later
 for nm in (annPClassNames):
     pClasses[nm] = pc.PatClass(occNames=[],classFeatures={},type='ann');
 for nm in (genPClassNames):
     pClasses[nm] = pc.PatClass(occNames=[],classFeatures={},type='gen');
 
-#go thru pattern files and populate genpOccs and genpClasses
-#THE HEADERS ARE:
-#0: pattern class name
-#1: pattern occurrence name
-#2: song number (when songNames is sorted alphabetically)
-#3: occurrence start index
-#4: occurrence end index
+# go thru pattern files and populate genpOccs and genpClasses
+# THE HEADERS ARE:
+# 0: pattern class name
+# 1: pattern occurrence name
+# 2: song number (when songNames is sorted alphabetically)
+# 3: occurrence start index
+# 4: occurrence end index
 for row in genPTable:
-    #figure out new name for this pattern occurrence
-    #row 0 is the pattern class name.
+    # figure out new name for this pattern occurrence
+    # row 0 is the pattern class name.
 
     thisOccPClass = row[0]
     occName = row[1]
     thisOccSongName = songNames[int(row[2])]
     thisOccStartInd = int(row[3])
     thisOccEndInd = int(row[4])
-    thisOccScore = ft.extractPatternOccurrence(thisOccSongName,thisOccStartInd,
-                                            thisOccEndInd,False,songs)
+    thisOccScore = ft.extractPatternOccurrence(thisOccSongName, thisOccStartInd,
+                                            thisOccEndInd, False, songs)
 
     # it's possible for some reason for occs to have 1 note. don't do this.
     if len(list(thisOccScore)) <= 1:
@@ -143,7 +145,7 @@ for row in genPTable:
         score=thisOccScore,
         patternClass=thisOccPClass,
         type='gen',
-        occFeatures={} #compute features later
+        occFeatures={} # compute features later
     )
 
     #add this occurrence's name to its corresponding pClasses entry
@@ -221,19 +223,19 @@ totalOccs = len(genPOccNames) + len(annPOccNames)
 ct = 0
 
 for on in (annPOccNames + genPOccNames):
-    pOccs[on].occFeatures = ft.getFeaturesForOccurrences(pOccs[on],songs);
+    pOccs[on].occFeatures = ft.getFeaturesForOccurrences(pOccs[on], songs)
     ct += 1
     if ct % 1000 == 0:
-        print("   completed " + str(ct) + "/" +  str(totalOccs))
+        print("   completed " + str(ct) + "/" + str(totalOccs))
 
 print('computing features on pattern classes...')
 for cn in (annPClassNames + genPClassNames):
-    pClasses[cn].classFeatures = ft.getFeaturesForClasses(pClasses[cn],pOccs,songs)
+    pClasses[cn].classFeatures = ft.getFeaturesForClasses(pClasses[cn], pOccs, songs)
 
 pClassFeatureKeys = pClasses[annPClassNames[0]].classFeatures.keys()
 pClassFeatureKeys = sorted(pClassFeatureKeys)
 
-#normalize featureVector entries
+# normalize featureVector entries
 print("normalizing feature vectors...")
 # for fvk in pClassFeatureKeys:
 #     thisFeature = []
@@ -251,7 +253,7 @@ print("normalizing feature vectors...")
 #         pClasses[cn].classFeatures[fvk] = np.clip(
 #                 pClasses[cn].classFeatures[fvk],-3,3)
 
-#things to pickle:
+# things to pickle:
 print("saving results to file...")
 with open('parsed_patterns.pik', 'wb') as f:
   pickle.dump(copy.deepcopy((songs,

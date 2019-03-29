@@ -10,6 +10,7 @@ from torchvision import datasets, transforms
 from torch.autograd import Variable
 from importlib import reload
 
+
 class FFNet(nn.Module):
     def __init__(self, num_feats, out_size):
         super(FFNet, self).__init__()
@@ -38,6 +39,50 @@ class FFNet(nn.Module):
         out = self.drop_out(out)
         out = self.fc3(out)
         return out
+
+
+class FFNetDistance(nn.Module):
+    def __init__(self, num_feats):
+        super(FFNetDistance, self).__init__()
+        layer1_chan = 50
+        layer2_chan = 50
+        layer3_chan = 50
+        drop_out_prob = 0.50
+
+        self.layer1 = nn.Sequential(
+            nn.Linear(num_feats, layer1_chan),
+            nn.ReLU(),
+            nn.BatchNorm1d(layer1_chan),
+            nn.Dropout(p=drop_out_prob)
+        )
+        self.layer2 = nn.Sequential(
+            nn.Linear(layer1_chan, layer2_chan),
+            nn.ReLU(),
+            nn.BatchNorm1d(layer2_chan),
+            nn.Dropout(p=drop_out_prob)
+        )
+        self.layer3 = nn.Sequential(
+            nn.Linear(layer2_chan, layer3_chan)
+        )
+
+        self.sigmoid = nn.Sigmoid()
+        self.dist = nn.PairwiseDistance(p=1.0)
+
+    def forward(self, x):
+        f0 = x[:, 0, :]
+        f1 = x[:, 1, :]
+
+        out = self.layer1(f0)
+        out = self.layer2(out)
+        res1 = self.layer3(out)
+
+        out = self.layer1(f1)
+        out = self.layer2(out)
+        res2 = self.layer3(out)
+
+        distance = self.dist(res1, res2)
+        return distance
+
 
 class ConvNet(nn.Module):
     def __init__(self, img_size, out_size):
@@ -104,3 +149,28 @@ class ConvNet(nn.Module):
         out = self.fc1(out)
         out = self.fc2(out)
         return out
+
+
+if __name__ == '__main__':
+    # put garbage data thru a net to test it
+    learning_rate = 2e-4
+    num_feats = 20
+    batch_size = 300
+    epochs = 500
+    model = FFNetDistance(num_feats)
+    loss_func = nn.HingeEmbeddingLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    x = torch.rand(batch_size, 2, num_feats)
+    y = torch.randint(0, 2, (batch_size,)) * 2 - 1
+
+    for epoch in range(epochs):
+        y_pred = model(x)
+        loss = loss_func(y_pred, y)
+
+        # Reset gradients to zero, perform a backward pass, and update the weights
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        rd_loss = np.round(loss.item(), 4)
+        print(f"Epoch : {epoch}    Loss : {rd_loss}")
