@@ -5,6 +5,7 @@ Created on Wed Feb  7 17:42:18 2018
 @author: Tim
 """
 import music21 as m21
+import music21.features.jSymbolic as jsym
 import scipy.stats
 from collections import Counter
 import numpy as np
@@ -160,6 +161,18 @@ def getFeaturesForSongs(score):
     vec['rhythm_density'] = np.mean(noteDurs)
     vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
 
+    # HISTOGRAMS:
+    # interval counting
+    for n in range(13):
+        num = len([x for x in intervals if abs(x) == n])
+        vec['interval_count_' + str(n)] = num / len(intervals)
+    for n in range(12):
+        num = len([x for x in noteNums if abs(x) % 12 == n])
+        vec['pitch_class_count_' + str(n)] = num / len(noteNums)
+    for n in range(-3,3):
+        num = len([x for x in noteDurs if 2**(n) <= x < 2**(n+1)])
+        vec['rhythm_duration_count_' + str(n)] = num / len(noteDurs)
+
     return vec
 
 #single method that is passed an entry from the motifs dict
@@ -189,6 +202,14 @@ def getFeaturesForOccurrences(cur_class,songs):
     vec['pitch_num_classes'] = len(set(noteNums))
     vec['pitch_mean'] = np.mean(noteNums)
     vec['pitch_std'] = np.std(noteNums)
+    vec['pitch_pos_highest'] = noteNums.index(highest) / len(noteNums)
+    vec['pitch_pos_lowest'] = noteNums.index(lowest) / len(noteNums)
+
+    # pitch counting
+    for n in range(12):
+        num = len([x for x in noteNums if abs(x) % 12 == n])
+        vec['pitch_class_count_' + str(n)] = num / len(noteNums)
+
     vec['interval_max'] = max(np.abs(intervals))
     vec['interval_min'] = min(np.abs(intervals))
     vec['interval_largest_asc'] = max([max(intervals),0])
@@ -196,10 +217,13 @@ def getFeaturesForOccurrences(cur_class,songs):
     vec['interval_mean'] = np.mean(np.abs(intervals))
     vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
     vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
-    vec['pitch_pos_highest'] = noteNums.index(highest) / len(noteNums)
-    vec['pitch_pos_lowest'] = noteNums.index(lowest) / len(noteNums)
     vec['interval_asc_or_desc'] = np.sign(noteNums[0] - noteNums[len(noteNums)-1])
     vec['interval_signs'] = sum(np.sign(intervals)) / len(intervals)
+
+    # interval counting
+    for n in range(13):
+        num = len([x for x in intervals if abs(x) == n])
+        vec['interval_count_' + str(n)] = num / len(intervals)
 
     #-1 if monotonically down, 1 if up, else 0
     if all([np.sign(x) == 1 for x in intervals]):
@@ -217,6 +241,11 @@ def getFeaturesForOccurrences(cur_class,songs):
     vec['rhythm_density'] = np.mean(noteDurs)
     vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
     vec['rhythm_last_note_duration'] = noteDurs[len(noteDurs)-1]
+
+    # rhythm counting
+    for n in range(-3,3):
+        num = len([x for x in noteDurs if 2**(n) <= x < 2**(n+1)])
+        vec['rhythm_duration_count_' + str(n)] = num / len(noteDurs)
 
     #POLYFIT IDEA
     yCoords = [y - noteNums[0] for y in noteNums]
@@ -250,7 +279,7 @@ def getFeaturesForOccurrences(cur_class,songs):
     #differences between song and this motif
     songVec = songs[cur_class.songName].songFeatures
 
-    for key in [
+    song_diff_keys = [
             'interval_mean',
             'rhythm_variability',
             'rhythm_density',
@@ -258,7 +287,10 @@ def getFeaturesForOccurrences(cur_class,songs):
             'pitch_mean',
             'interval_prop_small',
             'interval_prop_large'
-            ]:
+            ]
+    song_diff_keys += [x for x in vec.keys() if '_count' in x]
+
+    for key in song_diff_keys:
         vec['diff_' + key] = songVec[key] - vec[key]
 
      #songScore = songs[motif['songName']]['score'].flat.notes.stream()
@@ -303,8 +335,8 @@ def getFeaturesForOccurrences(cur_class,songs):
     return vec
 
 
-def getFeaturesForClasses(patternClass,occs,songs):
-    #for now, this just takes the average/std over all occurrences
+def getFeaturesForClasses(patternClass, occs, songs):
+    #take the average/std over all occurrences
     vec = {}
 
     vec['numOccs'] = len(patternClass.occNames)
@@ -339,8 +371,8 @@ def getFeaturesForClasses(patternClass,occs,songs):
 
     return vec
 
-def filterPClassesWithKNN(annPClassNames,genPClassNames,kNearest,
-                          pClasses,pOccs):
+
+def filterPClassesWithKNN(annPClassNames, genPClassNames, kNearest, pClasses, pOccs):
     #so: we want to take a sample of our huge number of generated pattern classes
     #such that the number of occurrences and average cardinality doesn't easily
     #distinguish our sample from the annotated group.

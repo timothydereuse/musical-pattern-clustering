@@ -11,88 +11,26 @@ from torch.autograd import Variable
 from importlib import reload
 
 import assemblePianoRolls as apr
+import netClasses as nc
 reload(apr)
+reload(nc)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.cuda.empty_cache()
-num_validation_sets = 6
+num_validation_sets = 4
 num_categories = 2
 learning_rate = 2e-4
 
-class ConvNet(nn.Module):
-    def __init__(self, img_size, out_size):
-        super(ConvNet, self).__init__()
-        layer1_chan = 100
-        layer2_chan = 100
-        hidden_layer = 500
+def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000, stagnation_time=500):
 
-        conv1_kwargs = {'kernel_size':5, 'stride':1, 'padding':(0,4), 'dilation':1}
-        max1_kwargs = {'kernel_size':2, 'stride':2}
-
-        conv2_kwargs = {'kernel_size':5, 'stride':1, 'padding':(0,4), 'dilation':1}
-        max2_kwargs = max1_kwargs
-
-        def get_new_size(old_size, kernel_size=3, padding=0, dilation=1, stride=None):
-
-            if type(kernel_size) is not tuple:
-                kernel_size = (kernel_size, kernel_size)
-            if not stride:
-                stride = kernel_size
-            if type(stride) is not tuple:
-                stride = (stride, stride)
-            if type(padding) is not tuple:
-                padding = (padding, padding)
-            if type(dilation) is not tuple:
-                dilation = (dilation, dilation)
-
-            # print(kernel_size, stride, padding, dilation)
-
-            h_out = (old_size[0] + (2 * padding[0]) - (dilation[0] * (kernel_size[0] - 1)) - 1) / (stride[0]) + 1
-            v_out = (old_size[1] + (2 * padding[1]) - (dilation[1] * (kernel_size[1] - 1)) - 1) / (stride[1]) + 1
-            return int(np.floor(h_out)), int(np.floor(v_out))
-
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(1, layer1_chan, **conv1_kwargs),
-            nn.ReLU(),
-            nn.MaxPool2d(**max1_kwargs),
-            nn.BatchNorm2d(layer1_chan)
-        )
-        self.drop_out_2d = nn.Dropout2d()
-
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(layer1_chan, layer2_chan, **conv2_kwargs),
-            nn.ReLU(),
-            nn.MaxPool2d(**max2_kwargs),
-            nn.BatchNorm2d(layer1_chan)
-        )
-        self.drop_out = nn.Dropout()
-
-        new_size = get_new_size(img_size, **conv1_kwargs)
-        new_size = get_new_size(new_size, **max1_kwargs)
-        new_size = get_new_size(new_size, **conv2_kwargs)
-        new_size = get_new_size(new_size, **max2_kwargs)
-
-        self.fc1 = nn.Linear(new_size[0] * new_size[1] * layer2_chan, hidden_layer)
-        self.fc2 = nn.Linear(hidden_layer, out_size)
-
-    def forward(self, x):
-        out = self.layer1(x)
-        out = self.drop_out_2d(out)
-        out = self.layer2(out)
-        out = out.reshape(out.size(0), -1)
-        out = self.drop_out(out)
-        out = self.fc1(out)
-        out = self.fc2(out)
-        return out
-
-def train_model(dataset, labels, device, batch_size=None, num_epochs=1000, stagnation_time=100):
+    proportion_positive = (sum(labels) + 1) / (len(labels) + 1)
 
     x = dataset
     y = labels
 
     # define model
-    model = ConvNet(img_size=img_size, out_size=num_categories).to(device)
-    weights = torch.tensor([1, 1/proportion_positive], device=device)
+
+    weights = torch.tensor([1.0, 10.0], device=device)
     loss_func = nn.CrossEntropyLoss(weight=weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -100,7 +38,6 @@ def train_model(dataset, labels, device, batch_size=None, num_epochs=1000, stagn
     accuracies = []
     best_f1 = 0
     epocs_since_best_f1 = 0
-    print('running model...')
     for epoch in range(num_epochs):
 
         # choose samples to use for this batch
@@ -131,7 +68,8 @@ def train_model(dataset, labels, device, batch_size=None, num_epochs=1000, stagn
         stats = calculate_stats(y[indices].numpy(), predicted)
         accuracies.append(stats)
         rd_loss = np.round(loss.item(), 4)
-        print(f"Epoch : {epoch}    Loss : {rd_loss}    rec/prec/f1:{stats}")
+        if not epoch % 100:
+            print(f"Epoch : {epoch}    Loss : {rd_loss}    rec/prec/f1:{stats}")
 
         if stats[2] > best_f1:
             best_f1 = stats[2]
@@ -162,38 +100,55 @@ def calculate_stats(correct, predicted, round_to=3):
 
 # load some data
 print('loading data...')
-train_images, train_labels = apr.assemble_rolls(normalize=True)
+# train_images, train_labels = apr.assemble_rolls(normalize=True)
+train_images, train_labels = apr.assemble_feats()
 
-proportion_positive = sum(train_labels) / len(train_labels)
 
 img_size = train_images.shape[-2:]
 num_train = len(train_images)
+
+num_dimensions = len(train_images.shape)
+if num_dimensions == 3:
+    x_all = torch.tensor(train_images)[:, None, :, :].float()
+elif num_dimensions == 2:
+    x_all = torch.tensor(train_images)[:, :].float()
+
+# get labels into a tensor
+y_all = torch.tensor(train_labels).long()
 
 # manage validation sets
 idx_shuffle = np.array(range(num_train))
 np.random.shuffle(idx_shuffle)
 set_idxs = np.array_split(idx_shuffle, num_validation_sets)
 
-train_idxs = np.concatenate(set_idxs[:-1])
-test_idxs = set_idxs[-1]
+cross_val_results = []
+for run_num in range(num_validation_sets):
 
-print('transforming data into tensors...')
-# add dimension for channels
-x_all = torch.tensor(train_images)[:, None, :, :].float()
-x_train = x_all[train_idxs]
-x_test = x_all[test_idxs]
+    train_idxs = np.concatenate(set_idxs[:run_num] + set_idxs[run_num+1:])
+    test_idxs = set_idxs[run_num]
 
-# get labels into a tensor
-y_all = torch.tensor(train_labels).long()
-y_train = y_all[train_idxs]
-y_test = y_all[test_idxs]
+    # add dimension for channels
+    x_train = x_all[train_idxs]
+    x_test = x_all[test_idxs]
 
-mod = train_model(x_train, y_train, device, batch_size=600, num_epochs=900)
-mod = mod.cpu()
+    y_train = y_all[train_idxs]
+    y_test = y_all[test_idxs]
 
-with torch.no_grad():
-    output = mod(x_test)
-    preds = output.argmax(dim=1)
+    # model = nc.ConvNet(img_size=img_size, out_size=num_categories)
+    model = nc.FFNet(num_feats=x_all.shape[-1], out_size=2)
 
-results = calculate_stats(y_test.numpy(), preds.numpy())
-print(results)
+    print('running model...')
+    mod = train_model(x_train, y_train, model, device,
+        batch_size=300, num_epochs=5000, stagnation_time=1000)
+    mod = mod.cpu()
+
+    with torch.no_grad():
+        output = mod(x_test)
+        preds = output.argmax(dim=1)
+
+    results = calculate_stats(y_test.numpy(), preds.numpy())
+    cross_val_results.append(results)
+    print(results)
+
+for i in range(len(cross_val_results[0])):
+    print(np.mean([x[i] for x in cross_val_results]))

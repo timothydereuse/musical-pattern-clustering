@@ -20,19 +20,34 @@ from importlib import reload
 reload(pc)
 reload(ft)
 
+def class_similarity(cl1, cl2, pOccs):
+    def get_identifiers(occ_names):
+        ret = []
+        for occ_name in occ_names:
+            occ = pOccs[occ_name]
+            ret.append((occ.songName, occ.startInd, occ.endInd))
+            # ret.append((occ.songName, occ.endInd))
+        return set(ret)
+    occs1 = get_identifiers(cl1.occNames)
+    occs2 = get_identifiers(cl2.occNames)
+    min_size = min(len(occs1), len(occs2))
+    sect_amt = len(occs1.intersection(occs2))
+    similarity = (sect_amt / min_size)
+    return similarity
+
 ### FILE SETUP, FETCH DATA
 ### -----------------------
 thisFileDir = os.path.dirname(os.path.realpath('__file__'))
-genPatternsfileDir = os.path.join(thisFileDir, '../genPatterns')
-fileDir = os.path.join(thisFileDir, '../MTC-ANN-2.0.1/krn')
-annFile = os.path.join(thisFileDir, '../MTC-ANN-2.0.1/metadata/MTC-ANN-motifs.csv')
-tuneFamFile = os.path.join(thisFileDir, '../MTC-ANN-2.0.1/metadata/MTC-ANN-tune-family-labels.csv')
+genPatternsfileDir = os.path.join(thisFileDir, 'genpatterns')
+fileDir = os.path.join(thisFileDir, 'MTC-ANN-2.0.1/krn')
+annFile = os.path.join(thisFileDir, 'MTC-ANN-2.0.1/metadata/MTC-ANN-motifs.csv')
+tuneFamFile = os.path.join(thisFileDir, 'MTC-ANN-2.0.1/metadata/MTC-ANN-tune-family-labels.csv')
 
 #get all parsed pattern files
 genPatternFiles = []
 for root, dirs, files in os.walk(genPatternsfileDir):
     for file in files:
-        if file.endswith('.txt'):
+        if file.endswith('_patterns.txt'):
             genPatternFiles.append(os.path.join(genPatternsfileDir,file))
 
 #get all the song files into songNames, sort them
@@ -110,15 +125,17 @@ for row in genPTable:
 
     thisOccPClass = row[0]
     occName = row[1]
-
-    genPOccNames.append(occName)
-
     thisOccSongName = songNames[int(row[2])]
     thisOccStartInd = int(row[3])
     thisOccEndInd = int(row[4])
-
     thisOccScore = ft.extractPatternOccurrence(thisOccSongName,thisOccStartInd,
                                             thisOccEndInd,False,songs)
+
+    # it's possible for some reason for occs to have 1 note. don't do this.
+    if len(list(thisOccScore)) <= 1:
+        continue
+    genPOccNames.append(occName)
+
     pOccs[occName] = pc.PatOccurrence(
         songName=thisOccSongName,
         startInd=thisOccStartInd,
@@ -171,12 +188,23 @@ for row in annPTable:
     #add this occurrence's name to its corresponding pClasses entry
     pClasses[thisOccPClass].occNames.append(occName)
 
+# ROUTINE TO REMOVE GEN PATTERNS THAT ARE SIMILAR TO ANN PATTERNS
+print('removing generated pattern classes that are too similar...')
+for ann_class_name in annPClassNames:
+    names_to_remove = []
+    ann_class = pClasses[ann_class_name]
+    for gen_class_name in genPClassNames:
+        gen_class = pClasses[gen_class_name]
+        similarity = class_similarity(ann_class, gen_class, pOccs)
+        if similarity > 0.5:
+            names_to_remove.append(gen_class_name)
+    for remove_name in names_to_remove:
+        genPClassNames.remove(remove_name)
+        del pClasses[remove_name]
 
 ###FILTER GENERATED PATTERN CLASSES
-###---------------------------------------
 print('filtering generated pattern classes...')
-filtGenPClassNames = ft.filterPClassesWithKNN(annPClassNames,genPClassNames,1,
-                                        pClasses,pOccs)
+filtGenPClassNames = []# ft.filterPClassesWithKNN(annPClassNames,genPClassNames,1,pClasses,pOccs)
 filtGenPOccNames = []
 for gcn in filtGenPClassNames:
     filtGenPOccNames += pClasses[gcn].occNames
@@ -207,21 +235,21 @@ pClassFeatureKeys = sorted(pClassFeatureKeys)
 
 #normalize featureVector entries
 print("normalizing feature vectors...")
-for fvk in pClassFeatureKeys:
-    thisFeature = []
-
-    #get list of all computed values for this feature
-    for cn in (annPClassNames + genPClassNames):
-        thisFeature.append(pClasses[cn].classFeatures[fvk])
-
-    thisMean = np.mean(thisFeature)
-    thisStd = np.std(thisFeature)
-
-    for cn in (annPClassNames + genPClassNames):
-        pClasses[cn].classFeatures[fvk] -= thisMean
-        pClasses[cn].classFeatures[fvk] /= thisStd
-        pClasses[cn].classFeatures[fvk] = np.clip(
-                pClasses[cn].classFeatures[fvk],-3,3)
+# for fvk in pClassFeatureKeys:
+#     thisFeature = []
+#
+#     #get list of all computed values for this feature
+#     for cn in (annPClassNames + genPClassNames):
+#         thisFeature.append(pClasses[cn].classFeatures[fvk])
+#
+#     thisMean = np.mean(thisFeature)
+#     thisStd = np.std(thisFeature)
+#
+#     for cn in (annPClassNames + genPClassNames):
+#         pClasses[cn].classFeatures[fvk] -= thisMean
+#         pClasses[cn].classFeatures[fvk] /= thisStd
+#         pClasses[cn].classFeatures[fvk] = np.clip(
+#                 pClasses[cn].classFeatures[fvk],-3,3)
 
 #things to pickle:
 print("saving results to file...")

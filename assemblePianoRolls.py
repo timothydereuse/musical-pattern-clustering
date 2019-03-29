@@ -20,6 +20,7 @@ def get_note_bounds(pOccs):
         last_loc.append(max(locs))
     return max(max_note), min(min_note), max(last_loc)
 
+
 def get_roll_from_class(p_class, pOccs, bounds):
 
     highest_note = bounds[0] + 1
@@ -48,6 +49,7 @@ def get_roll_from_class(p_class, pOccs, bounds):
         roll[n] += 1
 
     return roll
+
 
 def assemble_rolls(normalize=True):
     print("loading data from file...")
@@ -79,3 +81,35 @@ def assemble_rolls(normalize=True):
         labels.append(int(pClasses[cn].type == 'ann'))
 
     return np.array(data), np.array(labels)
+
+def assemble_feats():
+    print("loading data from file...")
+    with open('parsed_patterns.pik', "rb") as f:
+        dat = pickle.load(f)
+
+    songs = dat[0]
+    pClasses = dat[1]
+    pOccs = dat[2]
+    annPClassNames = dat[3]
+    annPOccNames = dat[4]
+    genPClassNames = dat[5]
+    genPOccNames = dat[6]
+    filtGenPClassNames = dat[7]
+
+    sorted_fkeys = sorted(list(pClasses.values())[0].classFeatures.keys())
+
+    labels = []
+    data = []
+    for class_name in pClasses.keys():
+        pClass = pClasses[class_name]
+        feats = []
+        for fkey in sorted_fkeys:
+            feats.append(pClass.classFeatures[fkey])
+
+        data.append(np.array(feats))
+        labels.append(int(pClasses[class_name].type == 'ann'))
+
+    return np.array(data), np.array(labels)
+
+if __name__ == '__main__':
+    data, labels = assemble_feats()

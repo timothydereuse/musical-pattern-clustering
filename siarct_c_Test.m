@@ -1,25 +1,24 @@
 %% SET UP INPUT FILES
 
-coreRoot = fullfile('', 'C:\Users\Tim\Documents\patterndiscovery\PattDisc-Jun2014',...
-  'tunefamilytxt');
-pattDiscOut = fullfile(coreRoot, 'examples', 'examplePattDiscOut');
+coreRoot = fullfile('', 'C:\Users\Tim\Documents\code\pattern-discovery-knn\',...
+  'mtcpointset');
+outFolder = fullfile(coreRoot, '../genpatterns');
 %pieceName = 'mtcannpts_100off';
 %pieceName = 'MTCtunefamily_Er_reed_er_e_ptset';
 
 %get list of all text files in tune family database directory
 allFilenames = dir(coreRoot);
 allFilenames = {allFilenames(3:end).name};
-
 %% PARAMETERS
 
-targetPitchStd = 1.4; %for k-means clustering of mean pattern pitches
+targetPitchStd = 1.5; %for k-means clustering of mean pattern pitches
 
 r = 1;
 quick = 1;
 compactThresh = 1;
 cardinaThresh = 3;
 regionType = 'lexicographic';
-similarThresh = 0.73;
+similarThresh = 0.7;
 similarFunc = 'cardinality score';
 similarParam = 1;
 ratingField = 'cardinality';
@@ -58,7 +57,7 @@ ratingField = 'cardinality';
 %   in S should be used to order the repeated patterns.
 
 %% RUN THE DANG THING
-for fileNum = 1:3%length(allFilenames)
+for fileNum = 1:length(allFilenames)
 
     pieceName = allFilenames{fileNum};
     %remove the .txt from the end
@@ -73,7 +72,7 @@ for fileNum = 1:3%length(allFilenames)
     D = D(:,[4 1 2]); %keep song ID#, onset time, and MIDI pitch number
     D = sortrows(D);
 
-    disp(strcat('Finding Patterns in ' + pieceName + '.txt.'));
+    disp(strcat('Finding Patterns in ', pieceName, '.txt.'));
 
     disp('Running SIAR...');
     [SIARoutput, runtime, FRT] = SIAR(D, r, quick);
@@ -208,7 +207,7 @@ for fileNum = 1:3%length(allFilenames)
     %now we have a bunch of patterns all cleaned up - write them into a file
     disp('Writing To File...');
     %outFilename = strcat(pieceName,'_patterns.txt');
-    outFilename = [char(pieceName) '_patterns.txt'];
+    outFilename = fullfile(outFolder, [char(pieceName) '_patterns.txt']);
     fileID = fopen(outFilename,'w');
     for j = 1:length(sepSorted)
        members = sepSorted{j};
