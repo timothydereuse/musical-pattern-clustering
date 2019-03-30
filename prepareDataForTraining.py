@@ -121,7 +121,7 @@ def assemble_feats():
     return np.array(data), np.array(labels)
 
 
-def assemble_clustering_feats(max_similar=1000, unsimilar_factor=1, gen_factor=0.5):
+def assemble_clustering_feats(max_similar=1000, unsimilar_factor=1, gen_factor=0.25):
     print("loading data from file...")
     with open(pickle_name, "rb") as f:
         dat = pickle.load(f)

@@ -44,8 +44,8 @@ class FFNet(nn.Module):
 class FFNetDistance(nn.Module):
     def __init__(self, num_feats):
         super(FFNetDistance, self).__init__()
-        layer1_chan = 50
-        layer2_chan = 50
+        layer1_chan = 100
+        layer2_chan = 100
         layer3_chan = 50
         drop_out_prob = 0.50
 
@@ -53,16 +53,17 @@ class FFNetDistance(nn.Module):
             nn.Linear(num_feats, layer1_chan),
             nn.ReLU(),
             nn.BatchNorm1d(layer1_chan),
-            nn.Dropout(p=drop_out_prob)
+            # nn.Dropout(p=drop_out_prob)
         )
         self.layer2 = nn.Sequential(
             nn.Linear(layer1_chan, layer2_chan),
             nn.ReLU(),
             nn.BatchNorm1d(layer2_chan),
-            nn.Dropout(p=drop_out_prob)
+            # nn.Dropout(p=drop_out_prob)
         )
         self.layer3 = nn.Sequential(
             nn.Linear(layer2_chan, layer3_chan)
+
         )
 
         self.sigmoid = nn.Sigmoid()
@@ -72,15 +73,15 @@ class FFNetDistance(nn.Module):
         f0 = x[:, 0, :]
         f1 = x[:, 1, :]
 
-        out = self.layer1(f0)
-        out = self.layer2(out)
-        res1 = self.layer3(out)
+        out0 = self.layer1(f0)
+        out0 = self.layer2(out0)
+        # out0 = self.layer3(out0)
 
-        out = self.layer1(f1)
-        out = self.layer2(out)
-        res2 = self.layer3(out)
+        out1 = self.layer1(f1)
+        out1 = self.layer2(out1)
+        # out1 = self.layer3(out1)
 
-        distance = self.dist(res1, res2)
+        distance = self.dist(out1, out0)
         return distance
 
 

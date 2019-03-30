@@ -18,27 +18,22 @@ reload(nc)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.cuda.empty_cache()
 num_validation_sets = 4
-num_categories = 2
 learning_rate = 2e-4
 
 
 def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000, stagnation_time=500):
 
-    proportion_positive = (sum(labels) + 1) / (len(labels) + 1)
-
     x = dataset
     y = labels
 
-    # define model
-
-    weights = torch.tensor([1.0, 10.0], device=device)
-    loss_func = nn.CrossEntropyLoss(weight=weights)
+    loss_func = nn.HingeEmbeddingLoss()
+    eval_loss_func = nn.functional.hinge_embedding_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     losses = []
     accuracies = []
-    best_f1 = 0
-    epocs_since_best_f1 = 0
+    best_loss = 0
+    epocs_since_best_loss = 0
     for epoch in range(num_epochs):
 
         # choose samples to use for this batch
@@ -62,23 +57,26 @@ def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000
         optimizer.step()
 
         # Calculate accuracy
-        total = y_batch.size(0)
-        _, predicted = torch.max(y_pred.data, 1)
-        predicted = predicted.cpu().numpy()
+        # total = y_batch.size(0)
+        # _, predicted = torch.max(y_pred.data, 1)
+        # predicted = predicted.cpu().numpy()
+        eval_loss = eval_loss_func(y_pred, y_batch, reduction='none')
+        num_correct = sum(eval_loss < 1).item()
+        accuracy = np.round(num_correct / len(eval_loss), 4)
 
-        stats = calculate_stats(y[indices].numpy(), predicted)
-        accuracies.append(stats)
+        # stats = calculate_stats(y[indices].numpy(), predicted)
+        accuracies.append(accuracy)
         rd_loss = np.round(loss.item(), 4)
         if not epoch % 100:
-            print(f"Epoch : {epoch}    Loss : {rd_loss}    rec/prec/f1:{stats}")
+            print(f"Epoch : {epoch}    Loss : {rd_loss},    Accuracy:{accuracy}")
 
-        if stats[2] > best_f1:
-            best_f1 = stats[2]
-            epocs_since_best_f1 = 0
+        if rd_loss > best_loss:
+            best_loss = rd_loss
+            epocs_since_best_loss = 0
         else:
-            epocs_since_best_f1 += 1
+            epocs_since_best_loss += 1
 
-        if epocs_since_best_f1 >= stagnation_time:
+        if epocs_since_best_loss >= stagnation_time:
             break
 
     return model
@@ -104,28 +102,20 @@ def calculate_stats(correct, predicted, round_to=3):
 # load some data
 print('loading data...')
 # train_images, train_labels = apr.assemble_rolls(normalize=True)
-train_images, train_labels = apr.assemble_feats()
+train_images, train_labels = apr.assemble_clustering_feats()
 
-
-img_size = train_images.shape[-2:]
 num_train = len(train_images)
 
-num_dimensions = len(train_images.shape)
-if num_dimensions == 3:
-    x_all = torch.tensor(train_images)[:, None, :, :].float()
-elif num_dimensions == 2:
-    x_all = torch.tensor(train_images)[:, :].float()
-
-# get labels into a tensor
+x_all = torch.tensor(train_images).float()
 y_all = torch.tensor(train_labels).long()
 
 # manage validation sets
 idx_shuffle = np.array(range(num_train))
 np.random.shuffle(idx_shuffle)
 set_idxs = np.array_split(idx_shuffle, num_validation_sets)
-quit()
+
 cross_val_results = []
-for run_num in range(num_validation_sets):
+for run_num in range(1):  # range(num_validation_sets):
 
     train_idxs = np.concatenate(set_idxs[:run_num] + set_idxs[run_num+1:])
     test_idxs = set_idxs[run_num]
@@ -138,20 +128,20 @@ for run_num in range(num_validation_sets):
     y_test = y_all[test_idxs]
 
     # model = nc.ConvNet(img_size=img_size, out_size=num_categories)
-    model = nc.FFNet(num_feats=x_all.shape[-1], out_size=2)
+    model = nc.FFNetDistance(num_feats=x_all.shape[-1])
 
     print('running model...')
     mod = train_model(x_train, y_train, model, device,
-        batch_size=300, num_epochs=5000, stagnation_time=1000)
+        batch_size=1000, num_epochs=5000, stagnation_time=10e10)
     mod = mod.cpu()
 
-    with torch.no_grad():
-        output = mod(x_test)
-        preds = output.argmax(dim=1)
-
-    results = calculate_stats(y_test.numpy(), preds.numpy())
-    cross_val_results.append(results)
-    print(results)
+    # with torch.no_grad():
+    #     output = mod(x_test)
+    #     preds = output.argmax(dim=1)
+    #
+    # results = calculate_stats(y_test.numpy(), preds.numpy())
+    # cross_val_results.append(results)
+    # print(results)
 
 for i in range(len(cross_val_results[0])):
     print(np.mean([x[i] for x in cross_val_results]))
