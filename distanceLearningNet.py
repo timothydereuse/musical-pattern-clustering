@@ -16,16 +16,18 @@ reload(apr)
 reload(nc)
 
 device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
-num_validation_sets = 4
+num_validation_sets = 15
 learning_rate = 3e-4
 
 
-def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000, stagnation_time=500):
+def train_model(data, model, device, batch_size=None, num_epochs=1000, stagnation_time=500, val_data=None, poll_every=50):
 
-    x = dataset
-    y = labels
+    x, y = data
 
-    loss_func = nn.HingeEmbeddingLoss(reduction='sum')
+    if val_data:
+        val_x, val_y = val_data
+
+    loss_func = nn.HingeEmbeddingLoss(reduction='mean')
     eval_loss_func = nn.functional.hinge_embedding_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -55,25 +57,30 @@ def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000
         loss.backward()
         optimizer.step()
 
-        # Calculate accuracy
-        # total = y_batch.size(0)
-        # _, predicted = torch.max(y_pred.data, 1)
-        # predicted = predicted.cpu().numpy()
-        eval_loss = eval_loss_func(y_pred, y_batch, reduction='none')
-        num_correct = sum(eval_loss < 1).item()
-        accuracy = np.round(num_correct / len(eval_loss), 4)
-
-        # stats = calculate_stats(y[indices].numpy(), predicted)
-        accuracies.append(accuracy)
         rd_loss = np.round(loss.item(), 4)
-        if not epoch % 100:
-            print(f"Epoch : {epoch}    Loss : {rd_loss},    Accuracy:{accuracy}")
 
-        if rd_loss > best_loss:
-            best_loss = rd_loss
+        if epoch % poll_every:
+            continue
+
+        if val_data:
+            with torch.no_grad():
+                y_val_pred = model(val_data[0])
+            val_loss = eval_loss_func(y_val_pred, val_data[1])
+        else:
+            val_loss = eval_loss_func(y_pred, y_batch)
+
+        # num_correct = sum(eval_loss < 1).item()
+        # accuracy = np.round(num_correct / len(eval_loss), 4)
+        # accuracies.append(accuracy)
+
+        print("Epoch: {}    Loss: {:.2E},    Val_loss: {:.2E}".format(
+            epoch, rd_loss, val_loss))
+
+        if val_loss > best_loss:
+            best_loss = val_loss
             epocs_since_best_loss = 0
         else:
-            epocs_since_best_loss += 1
+            epocs_since_best_loss += poll_every
 
         if epocs_since_best_loss >= stagnation_time:
             break
@@ -102,7 +109,7 @@ def calculate_stats(correct, predicted, round_to=3):
 print('loading data...')
 # train_images, train_labels = apr.assemble_rolls(normalize=True)
 train_images, train_labels = apr.assemble_clustering_feats(
-    unsimilar_factor=4, gen_factor=4, max_similar=0)
+    unsimilar_factor=5, gen_factor=2, max_similar=0)
 
 num_train = len(train_images)
 
@@ -122,18 +129,18 @@ for run_num in range(1):  # range(num_validation_sets):
 
     # add dimension for channels
     x_train = x_all[train_idxs]
-    x_test = x_all[test_idxs]
+    x_val = x_all[test_idxs]
 
     y_train = y_all[train_idxs]
-    y_test = y_all[test_idxs]
+    y_val = y_all[test_idxs]
 
     # model = nc.ConvNet(img_size=img_size, out_size=num_categories)
     model = nc.FFNetDistance(num_feats=x_all.shape[-1])
     model.to(device)
 
     print('running model...')
-    mod, accs = train_model(x_train, y_train, model, device,
-        batch_size=256, num_epochs=1e6, stagnation_time=1e5)
+    mod, accs = train_model((x_train, y_train), model, device, batch_size=256,
+        num_epochs=1e6, stagnation_time=1e5, val_data=(x_val, y_val))
     # mod = mod.cpu()
 
     # with torch.no_grad():
