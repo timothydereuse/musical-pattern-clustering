@@ -121,7 +121,7 @@ def assemble_feats():
     return np.array(data), np.array(labels)
 
 
-def assemble_clustering_feats(max_similar=1000, unsimilar_factor=1, gen_factor=0.25):
+def assemble_clustering_feats(max_similar=0, unsimilar_factor=0.1, gen_factor=3):
     print("loading data from file...")
     with open(pickle_name, "rb") as f:
         dat = pickle.load(f)
@@ -148,29 +148,35 @@ def assemble_clustering_feats(max_similar=1000, unsimilar_factor=1, gen_factor=0
 
         # choose occs from other classes
         other_occs = [x for x in annPOccNames if not (x in occ_names)]
-        choose_other_occs = np.random.choice(other_occs, len(combo) * unsimilar_factor)
+        choose_other_occs = np.random.choice(other_occs, int(len(combo) * unsimilar_factor))
         choose_gen_occs = np.random.choice(genPOccNames, int(len(combo) * gen_factor), replace=False)
 
         for i, occ in enumerate(np.concatenate((choose_other_occs, choose_gen_occs))):
             this_class_occ = occ_names[i % len(occ_names)]
             unsimilar_pairs.append((this_class_occ, occ))
 
+    if max_similar > 0:
+        idxs1 = np.random.choice(range(len(similar_pairs)), max_similar)
+        idxs2 = np.random.choice(range(len(unsimilar_pairs)), max_similar)
+        similar_pairs = [similar_pairs[x] for x in idxs1]
+        unsimilar_pairs = [unsimilar_pairs[x] for x in idxs2]
+
     data = []
     labels = []
 
     for pair in similar_pairs:
         feats1 = dict_to_array(pOccs[pair[0]].occFeatures, sorted_fkeys)
-        feats2 = dict_to_array(pOccs[pair[0]].occFeatures, sorted_fkeys)
+        feats2 = dict_to_array(pOccs[pair[1]].occFeatures, sorted_fkeys)
         asdf = np.array([feats1, feats2])
         data.append(asdf)
         labels.append(1)
 
     for pair in unsimilar_pairs:
         feats1 = dict_to_array(pOccs[pair[0]].occFeatures, sorted_fkeys)
-        feats2 = dict_to_array(pOccs[pair[0]].occFeatures, sorted_fkeys)
+        feats2 = dict_to_array(pOccs[pair[1]].occFeatures, sorted_fkeys)
         asdf = np.array([feats1, feats2])
         data.append(asdf)
-        labels.append(0)
+        labels.append(-1)
 
     # sorted_fkeys = sorted(list(pClasses.values())[0].classFeatures.keys())
     #

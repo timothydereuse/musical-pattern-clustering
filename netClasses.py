@@ -44,42 +44,39 @@ class FFNet(nn.Module):
 class FFNetDistance(nn.Module):
     def __init__(self, num_feats):
         super(FFNetDistance, self).__init__()
-        layer1_chan = 100
-        layer2_chan = 100
-        layer3_chan = 50
+        layer1_chan = 30
+        layer2_chan = 30
+        layer3_chan = 30
         drop_out_prob = 0.50
 
         self.layer1 = nn.Sequential(
             nn.Linear(num_feats, layer1_chan),
             nn.ReLU(),
-            nn.BatchNorm1d(layer1_chan),
+            # nn.BatchNorm1d(layer1_chan),
             # nn.Dropout(p=drop_out_prob)
         )
         self.layer2 = nn.Sequential(
             nn.Linear(layer1_chan, layer2_chan),
             nn.ReLU(),
-            nn.BatchNorm1d(layer2_chan),
+            # nn.BatchNorm1d(layer2_chan),
             # nn.Dropout(p=drop_out_prob)
         )
         self.layer3 = nn.Sequential(
             nn.Linear(layer2_chan, layer3_chan)
-
         )
-
-        self.sigmoid = nn.Sigmoid()
         self.dist = nn.PairwiseDistance(p=1.0)
 
     def forward(self, x):
         f0 = x[:, 0, :]
         f1 = x[:, 1, :]
 
-        out0 = self.layer1(f0)
+        out0 = self.layer1(x[:, 0, :])
         out0 = self.layer2(out0)
-        # out0 = self.layer3(out0)
+        out0 = self.layer3(out0)
 
-        out1 = self.layer1(f1)
+        out1 = self.layer1(x[:, 1, :])
         out1 = self.layer2(out1)
-        # out1 = self.layer3(out1)
+        out1 = self.layer3(out1)
 
         distance = self.dist(out1, out0)
         return distance
@@ -155,9 +152,9 @@ class ConvNet(nn.Module):
 if __name__ == '__main__':
     # put garbage data thru a net to test it
     learning_rate = 2e-4
-    num_feats = 20
-    batch_size = 300
-    epochs = 500
+    num_feats = 106
+    batch_size = 500
+    epochs = 2000
     model = FFNetDistance(num_feats)
     loss_func = nn.HingeEmbeddingLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -174,4 +171,5 @@ if __name__ == '__main__':
         optimizer.step()
 
         rd_loss = np.round(loss.item(), 4)
-        print(f"Epoch : {epoch}    Loss : {rd_loss}")
+        if not epoch % 100:
+            print(f"Epoch : {epoch}    Loss : {rd_loss}")

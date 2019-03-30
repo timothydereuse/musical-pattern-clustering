@@ -15,10 +15,9 @@ import netClasses as nc
 reload(apr)
 reload(nc)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-torch.cuda.empty_cache()
+device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 num_validation_sets = 4
-learning_rate = 2e-4
+learning_rate = 3e-4
 
 
 def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000, stagnation_time=500):
@@ -26,7 +25,7 @@ def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000
     x = dataset
     y = labels
 
-    loss_func = nn.HingeEmbeddingLoss()
+    loss_func = nn.HingeEmbeddingLoss(reduction='sum')
     eval_loss_func = nn.functional.hinge_embedding_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -34,13 +33,13 @@ def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000
     accuracies = []
     best_loss = 0
     epocs_since_best_loss = 0
-    for epoch in range(num_epochs):
+    for epoch in range(int(num_epochs)):
 
         # choose samples to use for this batch
         if batch_size:
             indices = np.random.choice(x.shape[0], batch_size, replace=False)
         else:
-            indices = np.array(range(len(x)))
+            indices = np.array(range(x.shape[0]))
         x_batch = x[indices].to(device)
         y_batch = y[indices].to(device)
 
@@ -79,7 +78,7 @@ def train_model(dataset, labels, model, device, batch_size=None, num_epochs=1000
         if epocs_since_best_loss >= stagnation_time:
             break
 
-    return model
+    return model, accuracies
 
 
 def calculate_stats(correct, predicted, round_to=3):
@@ -102,7 +101,8 @@ def calculate_stats(correct, predicted, round_to=3):
 # load some data
 print('loading data...')
 # train_images, train_labels = apr.assemble_rolls(normalize=True)
-train_images, train_labels = apr.assemble_clustering_feats()
+train_images, train_labels = apr.assemble_clustering_feats(
+    unsimilar_factor=4, gen_factor=4, max_similar=0)
 
 num_train = len(train_images)
 
@@ -129,11 +129,12 @@ for run_num in range(1):  # range(num_validation_sets):
 
     # model = nc.ConvNet(img_size=img_size, out_size=num_categories)
     model = nc.FFNetDistance(num_feats=x_all.shape[-1])
+    model.to(device)
 
     print('running model...')
-    mod = train_model(x_train, y_train, model, device,
-        batch_size=1000, num_epochs=5000, stagnation_time=10e10)
-    mod = mod.cpu()
+    mod, accs = train_model(x_train, y_train, model, device,
+        batch_size=256, num_epochs=1e6, stagnation_time=1e5)
+    # mod = mod.cpu()
 
     # with torch.no_grad():
     #     output = mod(x_test)
@@ -143,5 +144,8 @@ for run_num in range(1):  # range(num_validation_sets):
     # cross_val_results.append(results)
     # print(results)
 
-for i in range(len(cross_val_results[0])):
-    print(np.mean([x[i] for x in cross_val_results]))
+print(accs)
+torch.save(model.state_dict(),'saved_model.pt')
+
+# for i in range(len(cross_val_results[0])):
+#     print(np.mean([x[i] for x in cross_val_results]))

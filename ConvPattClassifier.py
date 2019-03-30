@@ -123,7 +123,7 @@ y_all = torch.tensor(train_labels).long()
 idx_shuffle = np.array(range(num_train))
 np.random.shuffle(idx_shuffle)
 set_idxs = np.array_split(idx_shuffle, num_validation_sets)
-quit()
+
 cross_val_results = []
 for run_num in range(num_validation_sets):
 
@@ -139,10 +139,11 @@ for run_num in range(num_validation_sets):
 
     # model = nc.ConvNet(img_size=img_size, out_size=num_categories)
     model = nc.FFNet(num_feats=x_all.shape[-1], out_size=2)
+    model.to(device)
 
     print('running model...')
     mod = train_model(x_train, y_train, model, device,
-        batch_size=300, num_epochs=5000, stagnation_time=1000)
+        batch_size=None, num_epochs=5000, stagnation_time=1000)
     mod = mod.cpu()
 
     with torch.no_grad():
