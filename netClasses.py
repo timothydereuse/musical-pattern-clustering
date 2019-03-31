@@ -47,7 +47,7 @@ class FFNetDistance(nn.Module):
         layer1_chan = 50
         layer2_chan = 50
         layer3_chan = 10
-        drop_out_prob = 0.5
+        drop_out_prob = 0.50
 
         self.layer1 = nn.Sequential(
             nn.Linear(num_feats, layer1_chan),

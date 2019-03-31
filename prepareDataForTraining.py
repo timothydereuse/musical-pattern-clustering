@@ -7,7 +7,6 @@ import itertools
 note_length_mult = 4
 pickle_name = 'parsed_patterns.pik'
 
-
 def get_note_bounds(pOccs):
     max_note = []
     min_note = []
@@ -121,19 +120,16 @@ def assemble_feats():
     return np.array(data), np.array(labels)
 
 
-def assemble_clustering_feats(max_similar=0, unsimilar_factor=0.1, gen_factor=3):
-    print("loading data from file...")
-    with open(pickle_name, "rb") as f:
-        dat = pickle.load(f)
+def assemble_clustering_feats(data_in, ann_class_names, max_similar=0, unsimilar_factor=0.1, gen_factor=3):
 
-    songs = dat[0]
-    pClasses = dat[1]
-    pOccs = dat[2]
-    annPClassNames = dat[3]
-    annPOccNames = dat[4]
-    genPClassNames = dat[5]
-    genPOccNames = dat[6]
-    filtGenPClassNames = dat[7]
+    songs = data_in[0]
+    pClasses = data_in[1]
+    pOccs = data_in[2]
+    annPClassNames = data_in[3]
+    annPOccNames = data_in[4]
+    genPClassNames = data_in[5]
+    genPOccNames = data_in[6]
+    filtGenPClassNames = data_in[7]
 
     sorted_fkeys = sorted(list(pOccs.values())[0].occFeatures.keys())
 
@@ -141,7 +137,7 @@ def assemble_clustering_feats(max_similar=0, unsimilar_factor=0.1, gen_factor=3)
     unsimilar_pairs = []
 
     # get all 2-combinations of each class
-    for class_name in annPClassNames:
+    for class_name in ann_class_names:
         occ_names = pClasses[class_name].occNames
         combo = list(itertools.combinations(occ_names, 2))
         similar_pairs += combo

@@ -29,19 +29,26 @@ def evaluate_clustering(test_occs, labels_true, model, pOccs):
             test_data.append(occ_to_subspace(occ_name))
     test_data = np.array(test_data)
 
-    eps_to_try = np.geomspace(1e-6, 1e-2, 100)
+    eps_to_try = np.geomspace(1e-5, 1, 100)
     best_db = None
     best_ep = 0
-    best_sil = -1
+    best_sil = -10000
     for ep in eps_to_try:
-        db = DBSCAN(eps=0.025, metric='l1', min_samples=3).fit(test_data)
+        db = DBSCAN(eps=ep, metric='l1', min_samples=3).fit(test_data)
         # hom = metrics.homogeneity_score(labels_true, db.labels_)
         # comp = metrics.completeness_score(labels_true, db.labels_)
-        sil = metrics.silhouette_score(test_data, db.labels_)
+        n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
+        n_noise_ = list(db.labels_).count(-1)
+        if n_clusters_ < 2:
+            continue
+        sil = n_clusters_
         if sil > best_sil:
             best_ep = ep
             best_sil = sil
             best_db = db
+
+    if best_sil == -10000:
+        return False
 
     core_samples_mask = np.zeros_like(best_db.labels_, dtype=bool)
     core_samples_mask[best_db.core_sample_indices_] = True
@@ -63,37 +70,38 @@ def evaluate_clustering(test_occs, labels_true, model, pOccs):
     results['silhouette_score'] = metrics.silhouette_score(test_data, labels)
     return results
 
-print("loading data from file...")
-with open(pickle_name, "rb") as f:
-    dat = pickle.load(f)
+if __name__ == '__main__':
+    print("loading data from file...")
+    with open(pickle_name, "rb") as f:
+        dat = pickle.load(f)
 
-songs = dat[0]
-pClasses = dat[1]
-pOccs = dat[2]
-annPClassNames = dat[3]
-annPOccNames = dat[4]
-genPClassNames = dat[5]
-genPOccNames = dat[6]
-filtGenPClassNames = dat[7]
-sorted_fkeys = sorted(list(pOccs.values())[0].occFeatures.keys())
+    songs = dat[0]
+    pClasses = dat[1]
+    pOccs = dat[2]
+    annPClassNames = dat[3]
+    annPOccNames = dat[4]
+    genPClassNames = dat[5]
+    genPOccNames = dat[6]
+    filtGenPClassNames = dat[7]
+    sorted_fkeys = sorted(list(pOccs.values())[0].occFeatures.keys())
 
-# master list of all occs involved:
-test_occs = []
-labels_true = []
-for i, pn in enumerate(annPClassNames):
-    occNames = pClasses[pn].occNames
-    for on in occNames:
-        test_occs.append(on)
-        labels_true.append(i)
+    # master list of all occs involved:
+    test_occs = []
+    labels_true = []
+    for i, pn in enumerate(annPClassNames):
+        occNames = pClasses[pn].occNames
+        for on in occNames:
+            test_occs.append(on)
+            labels_true.append(i)
 
-# add noisy occs:
-for i in range(4):
-    test_occs.append(str(np.random.choice(genPOccNames)))
-    labels_true.append(-1)
+    # add noisy occs:
+    for i in range(4):
+        test_occs.append(str(np.random.choice(genPOccNames)))
+        labels_true.append(-1)
 
-# load saved model
-model = nc.FFNetDistance(num_feats=len(sorted_fkeys))
-model.load_state_dict(torch.load('saved_model.pt'))
-model.eval()
+    # load saved model
+    model = nc.FFNetDistance(num_feats=len(sorted_fkeys))
+    model.load_state_dict(torch.load('saved_model.pt'))
+    model.eval()
 
-res = evaluate_clustering(test_occs, labels_true, model, pOccs)
+    res = evaluate_clustering(test_occs, labels_true, model, pOccs)
