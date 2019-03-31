@@ -44,22 +44,22 @@ class FFNet(nn.Module):
 class FFNetDistance(nn.Module):
     def __init__(self, num_feats):
         super(FFNetDistance, self).__init__()
-        layer1_chan = 30
-        layer2_chan = 30
-        layer3_chan = 30
-        drop_out_prob = 0.50
+        layer1_chan = 50
+        layer2_chan = 50
+        layer3_chan = 10
+        drop_out_prob = 0.5
 
         self.layer1 = nn.Sequential(
             nn.Linear(num_feats, layer1_chan),
             nn.ReLU(),
             # nn.BatchNorm1d(layer1_chan),
-            # nn.Dropout(p=drop_out_prob)
+            nn.Dropout(p=drop_out_prob)
         )
         self.layer2 = nn.Sequential(
             nn.Linear(layer1_chan, layer2_chan),
             nn.ReLU(),
             # nn.BatchNorm1d(layer2_chan),
-            # nn.Dropout(p=drop_out_prob)
+            nn.Dropout(p=drop_out_prob)
         )
         self.layer3 = nn.Sequential(
             nn.Linear(layer2_chan, layer3_chan)
@@ -80,6 +80,12 @@ class FFNetDistance(nn.Module):
 
         distance = self.dist(out1, out0)
         return distance
+
+    def subspace(self, x):
+        out0 = self.layer1(x)
+        out0 = self.layer2(out0)
+        out0 = self.layer3(out0)
+        return out0
 
 
 class ConvNet(nn.Module):
@@ -150,7 +156,8 @@ class ConvNet(nn.Module):
 
 
 if __name__ == '__main__':
-    # put garbage data thru a net to test it
+    # put garbage data thru a net to make sure it's working
+    # (i.e. capable of overfitting)
     learning_rate = 2e-4
     num_feats = 106
     batch_size = 500
@@ -173,3 +180,10 @@ if __name__ == '__main__':
         rd_loss = np.round(loss.item(), 4)
         if not epoch % 100:
             print(f"Epoch : {epoch}    Loss : {rd_loss}")
+
+    model.eval()
+    with torch.no_grad():
+        for ind in range(batch_size):
+            diff = abs(model.subspace(x[ind][0]) - model.subspace(x[ind][1]))
+            distance = sum(diff).item()
+            print(distance, y[ind])

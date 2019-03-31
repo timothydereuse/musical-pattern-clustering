@@ -65,19 +65,19 @@ def train_model(data, model, device, batch_size=None, num_epochs=1000, stagnatio
         if val_data:
             with torch.no_grad():
                 y_val_pred = model(val_data[0])
-            val_loss = eval_loss_func(y_val_pred, val_data[1])
+            val_loss = eval_loss_func(y_val_pred, val_data[1], reduction='none')
         else:
-            val_loss = eval_loss_func(y_pred, y_batch)
+            val_loss = eval_loss_func(y_pred, y_batch, reduction='none')
+        # accuracies.append(val_loss.item())
+        num_correct = sum(val_loss < 1).item()
+        accuracy = np.round(num_correct / len(val_loss), 4)
+        accuracies.append(accuracy.item())
 
-        # num_correct = sum(eval_loss < 1).item()
-        # accuracy = np.round(num_correct / len(eval_loss), 4)
-        # accuracies.append(accuracy)
+        print("Epoch: {}    Loss: {:.2E},    Accuracy:{:.2E}".format(
+            epoch, rd_loss, accuracy))
 
-        print("Epoch: {}    Loss: {:.2E},    Val_loss: {:.2E}".format(
-            epoch, rd_loss, val_loss))
-
-        if val_loss > best_loss:
-            best_loss = val_loss
+        if sum(val_loss) > best_loss:
+            best_loss = sum(val_loss)
             epocs_since_best_loss = 0
         else:
             epocs_since_best_loss += poll_every
@@ -109,7 +109,7 @@ def calculate_stats(correct, predicted, round_to=3):
 print('loading data...')
 # train_images, train_labels = apr.assemble_rolls(normalize=True)
 train_images, train_labels = apr.assemble_clustering_feats(
-    unsimilar_factor=5, gen_factor=2, max_similar=0)
+    unsimilar_factor=5, gen_factor=5, max_similar=0)
 
 num_train = len(train_images)
 
@@ -140,7 +140,7 @@ for run_num in range(1):  # range(num_validation_sets):
 
     print('running model...')
     mod, accs = train_model((x_train, y_train), model, device, batch_size=256,
-        num_epochs=1e6, stagnation_time=1e5, val_data=(x_val, y_val))
+        num_epochs=1e6, stagnation_time=1e4, poll_every=2500, val_data=(x_val, y_val))
     # mod = mod.cpu()
 
     # with torch.no_grad():
@@ -152,7 +152,7 @@ for run_num in range(1):  # range(num_validation_sets):
     # print(results)
 
 print(accs)
-torch.save(model.state_dict(),'saved_model.pt')
+torch.save(mod.state_dict(),'saved_model.pt')
 
 # for i in range(len(cross_val_results[0])):
 #     print(np.mean([x[i] for x in cross_val_results]))
