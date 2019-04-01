@@ -19,22 +19,15 @@ def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all'):
     fkeys = list(pOccs.values())[0].occFeatures.keys()
     sorted_fkeys = sorted(pdft.keys_subset(fkeys, subset))
 
-    def occ_to_subspace(occ):
-        if type(occ) == str:
-            occ = pOccs[occ]
-            arr = [occ.occFeatures[fkey] for fkey in sorted_fkeys]
-            arr = torch.tensor(arr).float()
-        else:
-            arr = occ
-        sub = model.subspace(arr)
-        return sub.detach().numpy()
+    full_data = []
+    for occ_name in test_occs:
+        occ = pOccs[occ_name]
+        arr = [occ.occFeatures[fkey] for fkey in sorted_fkeys]
+        full_data.append(arr)
 
-    test_data = []
-    # build feature vectors. careful with indices...
     with torch.no_grad():
-        for occ_name in test_occs:
-            test_data.append(occ_to_subspace(occ_name))
-    test_data = np.array(test_data)
+        full_data = torch.tensor(full_data).float()
+        test_data = model.subspace(full_data).detach().numpy()
 
     return perform_dbscan(test_data, labels_true)
 
@@ -166,7 +159,7 @@ if __name__ == '__main__':
             labels_true.append(i)
 
     # add noisy occs:
-    for i in range(0):
+    for i in range(len(test_occs)):
         test_occs.append(str(np.random.choice(genPOccNames)))
         labels_true.append(-1)
 
@@ -175,5 +168,5 @@ if __name__ == '__main__':
     # model.load_state_dict(torch.load('saved_model.pt'))
     # model.eval()
     print('performing clustering...')
-    res = evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=3, subset='only_rhythm')
+    res = evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=5, subset='only_seq')
     print(res)

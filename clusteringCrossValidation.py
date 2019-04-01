@@ -11,11 +11,11 @@ reload(pdft)
 
 import numpy as np
 
-num_validation_sets = 8 # number of experiments to run
-val_ratio = 0.1         # use this much of each training set for validation
+num_validation_sets = 3  # number of experiments to run
+val_ratio = 0.05          # use this much of each training set for validation
 feature_subset = 'all'
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 pickle_name = 'parsed_patterns.pik'
 
@@ -43,7 +43,8 @@ all_results = []
 for run_num in range(num_validation_sets):
     print("starting run {}...".format(run_num))
 
-    test_idxs = np.concatenate(set_idxs[:-1])
+    # test_idxs = np.concatenate(set_idxs[:-1])
+    test_idxs = set_idxs[0]
     train_idxs = np.concatenate(set_idxs[1:])
     set_idxs = np.roll(set_idxs, 1)    # prepare for the next test by rotating test/train
 
@@ -53,8 +54,8 @@ for run_num in range(num_validation_sets):
 
     train_data, train_labels = pdft.assemble_clustering_feats(dat,
         train_class_names,
-        unsimilar_factor=4,
-        gen_factor=4,
+        unsimilar_factor=1,
+        gen_factor=1,
         max_similar=0,
         subset=feature_subset)
 
@@ -75,10 +76,10 @@ for run_num in range(num_validation_sets):
 
     model, accs = dln.train_model((x_train, y_train), model, device,
         batch_size=256,
-        num_epochs=50000,
+        num_epochs=20000,
         stagnation_time=5000,
-        poll_every=1000,
-        val_every=50,
+        poll_every=2000,
+        val_every=200,
         lr=2e-4,
         val_data=(x_val, y_val)
         )

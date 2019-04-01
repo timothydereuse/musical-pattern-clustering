@@ -12,8 +12,10 @@ from importlib import reload
 
 import prepareDataForTraining as apr
 import netClasses as nc
+import clusteringTest as ct
 reload(apr)
 reload(nc)
+reload(ct)
 
 device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 num_validation_sets = 15
@@ -67,10 +69,8 @@ def train_model(data, model, device, batch_size=None, num_epochs=1000,
                 val_loss = eval_loss_func(y_val_pred, val_data[1], reduction='mean')
             else:
                 val_loss = eval_loss_func(y_pred, y_batch, reduction='mean')
-            # accuracies.append(val_loss.item())
-            # num_correct = sum(val_loss < 1).item()
-            # accuracy = np.round(num_correct / len(val_loss), 4)
-            # accuracies.append(accuracy.item())
+
+            # idea: actually perform clustering with the validation model
 
             if val_loss < best_loss:
                 best_loss = val_loss
