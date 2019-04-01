@@ -7,6 +7,27 @@ import itertools
 note_length_mult = 4
 pickle_name = 'parsed_patterns.pik'
 
+
+def keys_subset(all_keys, type_string):
+    if type_string == 'only_pitch':
+        return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
+    elif type_string == 'only_rhythm':
+        return [x for x in all_keys if ('rhythm' in x)]
+    elif type_string == 'exclude_means':
+        return [x for x in all_keys if ('avg' not in x)]
+    elif type_string == 'exclude_stds':
+        return [x for x in all_keys if ('std' not in x)]
+    elif type_string == 'exclude_song_comp':
+        return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
+    elif type_string == 'only_seq':
+        return [x for x in all_keys if ('seq' in x)]
+    elif type_string == 'all':
+        return all_keys
+    else:
+        raise TypeError('bad keys_subset type ' + str(type_string))
+    pass
+
+
 def get_note_bounds(pOccs):
     max_note = []
     min_note = []
@@ -120,7 +141,8 @@ def assemble_feats():
     return np.array(data), np.array(labels)
 
 
-def assemble_clustering_feats(data_in, ann_class_names, max_similar=0, unsimilar_factor=0.1, gen_factor=3):
+def assemble_clustering_feats(data_in, ann_class_names, max_similar=0, unsimilar_factor=0.1,
+                                gen_factor=3, subset='all'):
 
     songs = data_in[0]
     pClasses = data_in[1]
@@ -131,7 +153,8 @@ def assemble_clustering_feats(data_in, ann_class_names, max_similar=0, unsimilar
     genPOccNames = data_in[6]
     filtGenPClassNames = data_in[7]
 
-    sorted_fkeys = sorted(list(pOccs.values())[0].occFeatures.keys())
+    fkeys = list(pOccs.values())[0].occFeatures.keys()
+    sorted_fkeys = sorted(keys_subset(fkeys, subset))
 
     similar_pairs = []
     unsimilar_pairs = []

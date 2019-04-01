@@ -13,7 +13,7 @@ import numpy as np
 
 num_validation_sets = 8 # number of experiments to run
 val_ratio = 0.1         # use this much of each training set for validation
-
+feature_subset = 'all'
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
@@ -43,7 +43,7 @@ all_results = []
 for run_num in range(num_validation_sets):
     print("starting run {}...".format(run_num))
 
-    test_idxs = set_idxs[0]
+    test_idxs = np.concatenate(set_idxs[:-1])
     train_idxs = np.concatenate(set_idxs[1:])
     set_idxs = np.roll(set_idxs, 1)    # prepare for the next test by rotating test/train
 
@@ -55,8 +55,8 @@ for run_num in range(num_validation_sets):
         train_class_names,
         unsimilar_factor=4,
         gen_factor=4,
-        max_similar=0
-        )
+        max_similar=0,
+        subset=feature_subset)
 
     # make the model
     model = nc.FFNetDistance(num_feats=train_data.shape[-1])
@@ -74,9 +74,9 @@ for run_num in range(num_validation_sets):
     y_val = torch.tensor(train_labels[val_pair_idxs]).long()
 
     model, accs = dln.train_model((x_train, y_train), model, device,
-        batch_size=128,
+        batch_size=256,
         num_epochs=50000,
-        stagnation_time=1000,
+        stagnation_time=5000,
         poll_every=1000,
         val_every=50,
         lr=2e-4,
@@ -85,7 +85,7 @@ for run_num in range(num_validation_sets):
 
     # TESTING
     # assemble test occurrences
-    model.eval() # set model to evaluation mode
+    model.eval()  # set model to evaluation mode
 
     test_occs = []
     labels_true = []
@@ -100,7 +100,7 @@ for run_num in range(num_validation_sets):
         test_occs.append(str(np.random.choice(genPOccNames)))
         labels_true.append(-1)
 
-    res = ct.evaluate_clustering(test_occs, labels_true, model, pOccs)
+    res = ct.evaluate_clustering(test_occs, labels_true, model, pOccs, feature_subset)
     print(res)
     all_results.append(res)
 

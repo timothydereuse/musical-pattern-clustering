@@ -83,12 +83,12 @@ ROUND_DURS_DIGITS = 5;
 #             'motifClass':annEntry[9],
 #             'duration':annEntry[5]}
 
-#annotated first starting at 0, but tied notes are only counted for the onset
-#must disregard tied notes when doing start/end indices tabarnak
+# annotated first starting at 0, but tied notes are only counted for the onset
+# must disregard tied notes when doing start/end indices tabarnak
 
-#so: consider the list of notes up to the first index. if there's n ties
-#that live behind the start index, increment the start index by n. when done,
-#look 8 notes ahead and do the same thing
+# so: consider the list of notes up to the first index. if there's n ties
+# that live behind the start index, increment the start index by n. when done,
+# look 8 notes ahead and do the same thing
 def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
     """
     given song name, occurrence start, occurrence end, and the database of score files,
@@ -98,15 +98,15 @@ def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
     necessary bc MTC-ANN indexing doesn't count
     """
 
-    #inStart = int(annEntry[6])
-    #numNotes = int(annEntry[8])
-    numNotes = inEnd - inStart + 1 #including endpoints
+    # inStart = int(annEntry[6])
+    # numNotes = int(annEntry[8])
+    numNotes = inEnd - inStart + 1  # including endpoints
 
-    #add number of ties before start index from start index; meertens
-    #DOESN'T count tied notes as notes but music21 DOES
+    # add number of ties before start index from start index; meertens
+    # DOESN'T count tied notes as notes but music21 DOES
     allNotes = songs[songName].score.flat.notes.stream()
-    #subtract 1 here to get the first note of the occurence in the slice
-    #so that we can get rid of it if it's a rest
+    # subtract 1 here to get the first note of the occurence in the slice
+    # so that we can get rid of it if it's a rest
     if(useTies):
         beforeSlice = allNotes[:inStart-1]
         numTies = 0
@@ -117,29 +117,30 @@ def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
 
         inStart += numTies
 
-        #do the same for ties inside of the snippet, but also keep track of where
-        #they are and save that information with the pattOcc so we don't have to go
-        #through this procedure again (TODO)
+        # do the same for ties inside of the snippet, but also keep track of where
+        # they are and save that information with the pattOcc so we don't have to go
+        # through this procedure again (TODO)
         numTies = 0
         inSlice = allNotes[inStart:(inStart+numNotes)]
         for n in inSlice:
-            if(n.tie != None):
+            if(n.tie is not None):
                 if(n.tie.type == 'start'):
                     numTies += 1
 
-        #this new numNotes will work with music21
+        # this new numNotes will work with music21
         numNotes += numTies
 
     pattOcc = allNotes[inStart:(inStart+numNotes)]
 
     return pattOcc
 
+
 def getFeaturesForSongs(score):
     vec = {}
 
     mel = score.flat.notes.stream()
     noteNums = [x.pitch.midi for x in mel]
-    intervals = [noteNums[n] - noteNums[n-1] for n in range(1,len(noteNums))]
+    intervals = [noteNums[n] - noteNums[n-1] for n in range(1, len(noteNums))]
     couInt = dict(Counter(intervals))
     for k in couInt.keys():
         couInt[k] /= len(intervals)
@@ -148,10 +149,10 @@ def getFeaturesForSongs(score):
     vec['pitch_mean'] = np.mean(noteNums)
     vec['interval_mean'] = np.mean(np.abs(intervals))
     vec['interval_signs'] = sum(np.sign(intervals)) / len(intervals)
-    vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
-    vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
+    vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0, len(intervals))]) / len(intervals)
+    vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0, len(intervals))]) / len(intervals)
 
-    noteDurs = [round(float(x.quarterLength),ROUND_DURS_DIGITS) for x in mel]
+    noteDurs = [round(float(x.quarterLength), ROUND_DURS_DIGITS) for x in mel]
 
     couRtm = dict(Counter(noteDurs))
     for k in couRtm.keys():
@@ -159,7 +160,7 @@ def getFeaturesForSongs(score):
 
     vec['duration_probs'] = couRtm
     vec['rhythm_density'] = np.mean(noteDurs)
-    vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
+    vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs])  # from Collins 2014
 
     # HISTOGRAMS:
     # interval counting
@@ -169,27 +170,26 @@ def getFeaturesForSongs(score):
     for n in range(12):
         num = len([x for x in noteNums if abs(x) % 12 == n])
         vec['pitch_class_count_' + str(n)] = num / len(noteNums)
-    for n in range(-3,3):
+    for n in range(-3, 3):
         num = len([x for x in noteDurs if 2**(n) <= x < 2**(n+1)])
         vec['rhythm_duration_count_' + str(n)] = num / len(noteDurs)
 
     return vec
 
-#single method that is passed an entry from the motifs dict
-#and the database of songs and returns a dict that is a feature
-#vector for that motif. here go
-def getFeaturesForOccurrences(cur_class,songs):
 
-    #DERIVATIVES!!!
-    #first do as much as we can with just the notes belonging
-    #to the motif itself and see how that does
+# single method that is passed an entry from the motifs dict
+# and the database of songs and returns a dict that is a feature
+# vector for that motif.
+def getFeaturesForOccurrences(cur_class, songs):
+
+    max_length_occ = 10
     vec = {}
     mel = cur_class.score
 
-    #for now just remove rests
+    # for now just remove rests
 
     noteNums = [x.pitch.midi for x in mel]
-    intervals = [noteNums[n] - noteNums[n-1] for n in range(1,len(noteNums))]
+    intervals = [noteNums[n] - noteNums[n-1] for n in range(1, len(noteNums))]
 
     highest = max(noteNums)
     lowest = min(noteNums)
@@ -212,11 +212,11 @@ def getFeaturesForOccurrences(cur_class,songs):
 
     vec['interval_max'] = max(np.abs(intervals))
     vec['interval_min'] = min(np.abs(intervals))
-    vec['interval_largest_asc'] = max([max(intervals),0])
-    vec['interval_largest_desc'] = min([min(intervals),0])
+    vec['interval_largest_asc'] = max([max(intervals), 0])
+    vec['interval_largest_desc'] = min([min(intervals), 0])
     vec['interval_mean'] = np.mean(np.abs(intervals))
-    vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0,len(intervals))]) / len(intervals)
-    vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0,len(intervals))]) / len(intervals)
+    vec['interval_prop_small'] = sum([abs(intervals[n]) <= 2 for n in range(0, len(intervals))]) / len(intervals)
+    vec['interval_prop_large'] = sum([abs(intervals[n]) >= 7 for n in range(0, len(intervals))]) / len(intervals)
     vec['interval_asc_or_desc'] = np.sign(noteNums[0] - noteNums[len(noteNums)-1])
     vec['interval_signs'] = sum(np.sign(intervals)) / len(intervals)
 
@@ -225,7 +225,7 @@ def getFeaturesForOccurrences(cur_class,songs):
         num = len([x for x in intervals if abs(x) == n])
         vec['interval_count_' + str(n)] = num / len(intervals)
 
-    #-1 if monotonically down, 1 if up, else 0
+    # -1 if monotonically down, 1 if up, else 0
     if all([np.sign(x) == 1 for x in intervals]):
         vec['interval_strict_asc_or_desc'] = 1
     elif all([np.sign(x) == -1 for x in intervals]):
@@ -233,27 +233,27 @@ def getFeaturesForOccurrences(cur_class,songs):
     else:
         vec['interval_strict_asc_or_desc'] = 0
 
-    #rhythmic properties
-    noteDurs = [round(float(x.quarterLength),ROUND_DURS_DIGITS) for x in mel]
+    # rhythmic properties
+    noteDurs = [round(float(x.quarterLength), ROUND_DURS_DIGITS) for x in mel]
     vec['rhythm_duration'] = sum(noteDurs)
     vec['rhythm_longest_note'] = max(noteDurs)
     vec['rhythm_shortest_note'] = min(noteDurs)
     vec['rhythm_density'] = np.mean(noteDurs)
-    vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs]) #from Collins 2014
+    vec['rhythm_variability'] = np.std([np.log(float(n)) for n in noteDurs])  # from Collins 2014
     vec['rhythm_last_note_duration'] = noteDurs[len(noteDurs)-1]
 
     # rhythm counting
-    for n in range(-3,3):
+    for n in range(-3, 3):
         num = len([x for x in noteDurs if 2**(n) <= x < 2**(n+1)])
         vec['rhythm_duration_count_' + str(n)] = num / len(noteDurs)
 
-    #POLYFIT IDEA
+    # POLYFIT IDEA
     yCoords = [y - noteNums[0] for y in noteNums]
     xtemp = [float(x.offset) / vec['rhythm_duration'] for x in mel]
     xCoords = [x - xtemp[0] for x in xtemp]
 
-    #print(str(xCoords) + " vs " + str(yCoords))
-    polyFit1 = np.polyfit(xCoords,yCoords,1,full=True)
+    # print(str(xCoords) + " vs " + str(yCoords))
+    polyFit1 = np.polyfit(xCoords, yCoords, 1, full=True)
     vec['polyfit_1'] = polyFit1[0][0]
     vec['polyfit_residual_1'] = 0
     if polyFit1[1].size > 0:
@@ -265,18 +265,25 @@ def getFeaturesForOccurrences(cur_class,songs):
     vec['polyfit_residual_3'] = 0
 
     if len(noteNums) >= 3:
-        polyFit2 = np.polyfit(xCoords,yCoords,2,full=True)
+        polyFit2 = np.polyfit(xCoords, yCoords, 2, full=True)
         vec['polyfit_2'] = polyFit2[0][0]
         if polyFit2[1].size > 0:
             vec['polyfit_residual_2'] = np.sqrt(polyFit2[1][0])
 
     if len(noteNums) >= 4:
-        polyFit3 = np.polyfit(xCoords,yCoords,3,full=True)
+        polyFit3 = np.polyfit(xCoords, yCoords, 3, full=True)
         vec['polyfit_3'] = polyFit3[0][0]
         if polyFit3[1].size > 0:
             vec['polyfit_residual_3'] = np.sqrt(polyFit3[1][0])
 
-    #differences between song and this motif
+    # add sequence representation of occurrence
+    zeros = [0 for i in range(max_length_occ)]
+    for i in range(max_length_occ):
+        vec['seq_note_' + str(i)] = (noteNums + zeros)[i]
+        vec['seq_interval_' + str(i)] = (intervals + zeros)[i]
+        vec['seq_rhythm_' + str(i)] = (noteDurs + zeros)[i]
+
+    # differences between song and this motif
     songVec = songs[cur_class.songName].songFeatures
 
     song_diff_keys = [
@@ -293,7 +300,7 @@ def getFeaturesForOccurrences(cur_class,songs):
     for key in song_diff_keys:
         vec['diff_' + key] = songVec[key] - vec[key]
 
-     #songScore = songs[motif['songName']]['score'].flat.notes.stream()
+     # songScore = songs[motif['songName']]['score'].flat.notes.stream()
 #    songScoreNums = [x.pitch.midi for x in songScore]
 
 #    vec['intervalFollowing'] = 0
@@ -302,7 +309,6 @@ def getFeaturesForOccurrences(cur_class,songs):
 #    vec['intervalPreceding'] = 0
 #    if motif['endInd'] - 1 > 0:
 #        vec['intervalPreceding'] = songScoreNums[motif['endInd'] - 1] - noteNums[0]
-
 
     sumIntProbs = 1
     for i in intervals:
