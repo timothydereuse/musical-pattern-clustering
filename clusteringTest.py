@@ -15,7 +15,7 @@ reload(nc)
 pickle_name = 'parsed_patterns.pik'
 
 
-def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all'):
+def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all', epsilons=None):
     fkeys = list(pOccs.values())[0].occFeatures.keys()
     sorted_fkeys = sorted(pdft.keys_subset(fkeys, subset))
 
@@ -29,51 +29,10 @@ def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all'):
         full_data = torch.tensor(full_data).float()
         test_data = model.subspace(full_data).detach().numpy()
 
-    return perform_dbscan(test_data, labels_true)
-
-    eps_to_try = np.geomspace(1e-5, 1, 100)
-    best_db = None
-    best_ep = 0
-    best_sil = -10000
-    for ep in eps_to_try:
-        db = DBSCAN(eps=ep, metric='l1', min_samples=3).fit(test_data)
-        # hom = metrics.homogeneity_score(labels_true, db.labels_)
-        # comp = metrics.completeness_score(labels_true, db.labels_)
-        n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
-        n_noise_ = list(db.labels_).count(-1)
-        if n_clusters_ < 2:
-            continue
-        sil = n_clusters_
-        if sil > best_sil:
-            best_ep = ep
-            best_sil = sil
-            best_db = db
-
-    if best_sil == -10000:
-        return False
-
-    core_samples_mask = np.zeros_like(best_db.labels_, dtype=bool)
-    core_samples_mask[best_db.core_sample_indices_] = True
-    labels = best_db.labels_
-
-    # Number of clusters in labels, ignoring noise if present.
-    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-    n_noise_ = list(labels).count(-1)
-    results = {}
-    results['best_epsilon'] = best_ep
-    results['num_clusters'] = n_clusters_
-    results['num_noise_points'] = n_noise_
-    results['homogeneity_score'] = metrics.homogeneity_score(labels_true, labels)
-    results['completeness'] = metrics.completeness_score(labels_true, labels)
-    results['V-v_measure_score'] = metrics.v_measure_score(labels_true, labels)
-    results['adjusted_rand_score'] = metrics.adjusted_rand_score(labels_true, labels)
-    results['adjusted_mutual_information'] = metrics.adjusted_mutual_info_score(
-        labels_true, labels, average_method='arithmetic')
-    results['silhouette_score'] = metrics.silhouette_score(test_data, labels)
-    return results
+    return perform_dbscan(test_data, labels_true, epsilons)
 
 
-def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subset='all'):
+def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subset='all', epsilons=None):
     '''
     use dimensionality reduction with no distance learning, cluster data, and see how well
     the found clusters match up with ground truth.
@@ -88,12 +47,18 @@ def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subs
 
     pca = PCA(n_components)
     reduced_data = pca.fit_transform(full_data)
-    return perform_dbscan(reduced_data, labels_true)
+    return perform_dbscan(reduced_data, labels_true, epsilons)
 
 
-def perform_dbscan(test_data, labels_true):
+def perform_dbscan(test_data, labels_true, epsilons=None):
 
-    eps_to_try = np.geomspace(1e-5, 1, 100)
+    if epsilons is None:
+        eps_to_try = np.geomspace(1e-6, 5e-1, 100)
+    elif not (hasattr(epsilons, '__iter__')):
+        eps_to_try = [epsilons]
+    else:
+        eps_to_try = epsilons
+
     best_db = None
     best_ep = 0
     best_sil = -1
@@ -132,6 +97,19 @@ def perform_dbscan(test_data, labels_true):
         labels_true, labels, average_method='arithmetic')
     results['silhouette_score'] = metrics.silhouette_score(test_data, labels)
     return results
+
+
+def estimate_best_epsilon(data, model):
+    x_val = data[0]
+    y_val = data[1]
+    similar_idxs = [n for n in range(len(x_val)) if y_val[n] == 1]
+
+    similar_data = x_val[similar_idxs]
+    with torch.no_grad():
+        distances = model(similar_data).detach().numpy()
+
+    avg_distance = np.median(distances)
+    return avg_distance
 
 
 if __name__ == '__main__':
