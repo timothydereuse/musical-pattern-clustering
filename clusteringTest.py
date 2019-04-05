@@ -93,8 +93,6 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
     results['completeness'] = metrics.completeness_score(labels_true, labels)
     results['V-v_measure_score'] = metrics.v_measure_score(labels_true, labels)
     results['adjusted_rand_score'] = metrics.adjusted_rand_score(labels_true, labels)
-    results['adjusted_mutual_information'] = metrics.adjusted_mutual_info_score(
-        labels_true, labels, average_method='arithmetic')
     results['silhouette_score'] = metrics.silhouette_score(test_data, labels)
     return results
 

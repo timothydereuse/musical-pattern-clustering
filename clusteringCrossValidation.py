@@ -14,10 +14,10 @@ import numpy as np
 
 num_validation_sets = 3  # number of experiments to run
 val_ratio = 0.075          # use this much of each training set for validation
-feature_subset = 'all'
+feature_subset = 'exclude_seqs'
 
 pairs_unsimilar_factor = 1
-pairs_trivial_factor = 0
+pairs_trivial_factor = 1
 pairs_max_similar = 0
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -45,7 +45,7 @@ set_idxs = np.array_split(idx_shuffle, num_validation_sets)
 
 all_results = []
 
-for run_num in range(1): #range(num_validation_sets):
+for run_num in range(3): #range(num_validation_sets):
     print("starting run {}...".format(run_num))
 
     # test_idxs = np.concatenate(set_idxs[:-1])
@@ -99,7 +99,7 @@ for run_num in range(1): #range(num_validation_sets):
     model, accs = dln.train_model((x_train, y_train), model, device,
         batch_size=256,
         num_epochs=20000,
-        stagnation_time=3000,
+        stagnation_time=1000,
         poll_every=500,
         val_every=100,
         lr=2e-4,
@@ -122,9 +122,9 @@ for run_num in range(1): #range(num_validation_sets):
             labels_true.append(i)
 
     # add noisy occs:
-    for i in range(1):
+    for i in range(len(test_occs)):
         test_occs.append(str(np.random.choice(genPOccNames)))
-        labels_true.append(-1)
+        labels_true.append(1)
 
     res = ct.evaluate_clustering(test_occs, labels_true, model, pOccs, feature_subset, epsilons=epsilons)
     print(res)

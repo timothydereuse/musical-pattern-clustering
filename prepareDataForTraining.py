@@ -21,8 +21,12 @@ def keys_subset(all_keys, type_string):
         return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
     elif type_string == 'only_seq':
         return [x for x in all_keys if ('seq' in x)]
-    elif type_string == 'exseq':
+    elif type_string == 'only_seq_and_rhythm':
         return [x for x in all_keys if 'seq' in x or 'expected' in x or 'rhythm' in x]
+    elif type_string == 'exclude_counts':
+        return [x for x in all_keys if 'count' not in x]
+    elif type_string == 'exclude_seqs':
+        return [x for x in all_keys if 'seq' not in x]
     elif type_string == 'all':
         return all_keys
     else:
