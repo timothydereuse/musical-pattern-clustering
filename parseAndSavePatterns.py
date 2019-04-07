@@ -52,6 +52,12 @@ for root, dirs, files in os.walk(genPatternsfileDir):
         if file.endswith('_patterns.txt'):
             genPatternFiles.append(os.path.join(genPatternsfileDir,file))
 
+tune_fams = {}
+with open(tuneFamFile, 'r') as fp:
+    reader = csv.reader(fp, delimiter=',', quotechar='"')
+    for row in reader:
+        tune_fams[row[0]] = row[1]
+
 # get all the song files into songNames, sort them
 songNames = []
 for root, dirs, files in os.walk(fileDir):
@@ -71,7 +77,8 @@ for i in range(0, len(songNames)):
     #         }
     songs[f] = pc.Song(
             score = m21.converter.parse(os.path.join(fileDir, f) + ".krn"),
-            songFeatures = None
+            songFeatures = None,
+            tuneFamily = tune_fams[f]
             )
 
 print("fetching generated and annotated patterns...")
@@ -110,9 +117,9 @@ allClassNames = annPClassNames + genPClassNames
 
 # initialize dict structure for each class name. compute features later
 for nm in (annPClassNames):
-    pClasses[nm] = pc.PatClass(occNames=[],classFeatures={},type='ann');
+    pClasses[nm] = pc.PatClass(occNames=[],classFeatures={},type='ann',tuneFamily='');
 for nm in (genPClassNames):
-    pClasses[nm] = pc.PatClass(occNames=[],classFeatures={},type='gen');
+    pClasses[nm] = pc.PatClass(occNames=[],classFeatures={},type='gen',tuneFamily='');
 
 # go thru pattern files and populate genpOccs and genpClasses
 # THE HEADERS ARE:
@@ -128,6 +135,7 @@ for row in genPTable:
     thisOccPClass = row[0]
     occName = row[1]
     thisOccSongName = songNames[int(row[2])]
+    thisOccTuneFam = tune_fams[thisOccSongName]
     thisOccStartInd = int(row[3])
     thisOccEndInd = int(row[4])
     thisOccScore = ft.extractPatternOccurrence(thisOccSongName, thisOccStartInd,
@@ -145,7 +153,8 @@ for row in genPTable:
         score=thisOccScore,
         patternClass=thisOccPClass,
         type='gen',
-        occFeatures={} # compute features later
+        occFeatures={}, # compute features later
+        tuneFamily=thisOccTuneFam
     )
 
     #add this occurrence's name to its corresponding pClasses entry
@@ -171,6 +180,7 @@ for row in annPTable:
     occName = row[2]
     annPOccNames.append(occName)
 
+    thisOccTuneFam = row[0]
     thisOccSongName = row[1]
     thisOccPClass = row[9]
     thisOccStartInd = int(row[6])
@@ -184,11 +194,13 @@ for row in annPTable:
         score = thisOccScore,
         patternClass = thisOccPClass,
         type = 'ann',
-        occFeatures = {} #compute features later
+        occFeatures = {}, #compute features later
+        tuneFamily = thisOccTuneFam
     )
 
     #add this occurrence's name to its corresponding pClasses entry
     pClasses[thisOccPClass].occNames.append(occName)
+    pClasses[thisOccPClass].tuneFamily = thisOccTuneFam
 
 # ROUTINE TO REMOVE GEN PATTERNS THAT ARE SIMILAR TO ANN PATTERNS
 print('removing generated pattern classes that are too similar...')
@@ -237,21 +249,21 @@ pClassFeatureKeys = sorted(pClassFeatureKeys)
 
 # normalize featureVector entries
 print("normalizing feature vectors...")
-# for fvk in pClassFeatureKeys:
-#     thisFeature = []
-#
-#     #get list of all computed values for this feature
-#     for cn in (annPClassNames + genPClassNames):
-#         thisFeature.append(pClasses[cn].classFeatures[fvk])
-#
-#     thisMean = np.mean(thisFeature)
-#     thisStd = np.std(thisFeature)
-#
-#     for cn in (annPClassNames + genPClassNames):
-#         pClasses[cn].classFeatures[fvk] -= thisMean
-#         pClasses[cn].classFeatures[fvk] /= thisStd
-#         pClasses[cn].classFeatures[fvk] = np.clip(
-#                 pClasses[cn].classFeatures[fvk],-3,3)
+for fvk in pClassFeatureKeys:
+    thisFeature = []
+
+    #get list of all computed values for this feature
+    for cn in (annPClassNames + genPClassNames):
+        thisFeature.append(pClasses[cn].classFeatures[fvk])
+
+    thisMean = np.mean(thisFeature)
+    thisStd = np.std(thisFeature)
+
+    for cn in (annPClassNames + genPClassNames):
+        pClasses[cn].classFeatures[fvk] -= thisMean
+        pClasses[cn].classFeatures[fvk] /= (thisStd if thisStd else 1)
+        pClasses[cn].classFeatures[fvk] = np.clip(
+                pClasses[cn].classFeatures[fvk],-3,3)
 
 # things to pickle:
 print("saving results to file...")
@@ -263,5 +275,5 @@ with open('parsed_patterns.pik', 'wb') as f:
                              annPOccNames,
                              genPClassNames,
                              genPOccNames,
-                             filtGenPClassNames
+                             tune_fams
                              )), f, -1)

@@ -52,8 +52,10 @@ def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subs
 
 def perform_dbscan(test_data, labels_true, epsilons=None):
 
+    labels_true = np.array(labels_true)
+
     if epsilons is None:
-        eps_to_try = np.geomspace(1e-6, 5e-1, 100)
+        eps_to_try = np.geomspace(1e-6, 1e1, 20)
     elif not (hasattr(epsilons, '__iter__')):
         eps_to_try = [epsilons]
     else:
@@ -82,19 +84,33 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
     core_samples_mask[best_db.core_sample_indices_] = True
     labels = best_db.labels_
 
-    # Number of clusters in labels, ignoring noise if present.
-    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-    n_noise_ = list(labels).count(-1)
-    results = {}
-    results['best_epsilon'] = best_ep
-    results['num_clusters'] = n_clusters_
-    results['num_noise_points'] = n_noise_
-    results['homogeneity_score'] = metrics.homogeneity_score(labels_true, labels)
-    results['completeness'] = metrics.completeness_score(labels_true, labels)
-    results['V-v_measure_score'] = metrics.v_measure_score(labels_true, labels)
-    results['adjusted_rand_score'] = metrics.adjusted_rand_score(labels_true, labels)
-    results['silhouette_score'] = metrics.silhouette_score(test_data, labels)
-    return results
+    all_idxs = np.ones_like(labels, dtype='bool')
+    in_noise_idxs = (labels_true != -1)
+    out_noise_idxs = (labels != -1)
+
+    all_label_sets = [all_idxs]  # , in_noise_idxs, out_noise_idxs]
+
+    all_results = []
+    for idxs in all_label_sets:
+
+        l = labels[idxs]
+        lt = labels_true[idxs]
+        td = test_data[idxs]
+
+        # Number of clusters in labels, ignoring noise if present.
+        n_clusters_ = len(set(l)) - (1 if -1 in l else 0)
+        n_noise_ = list(l).count(-1)
+        results = {}
+        results['best_epsilon'] = best_ep
+        results['num_clusters'] = n_clusters_
+        results['num_noise_points'] = n_noise_
+        results['homogeneity_score'] = metrics.homogeneity_score(lt, l)
+        results['completeness'] = metrics.completeness_score(lt, l)
+        results['V-v_measure_score'] = metrics.v_measure_score(lt, l)
+        results['adjusted_rand_score'] = metrics.adjusted_rand_score(lt, l)
+        results['silhouette_score'] = metrics.silhouette_score(td, l)
+        all_results.append(results)
+    return all_results
 
 
 def estimate_best_epsilon(data, model):
@@ -135,7 +151,7 @@ if __name__ == '__main__':
             labels_true.append(i)
 
     # add noisy occs:
-    for i in range(len(test_occs)):
+    for i in range(len(test_occs) * 1):
         test_occs.append(str(np.random.choice(genPOccNames)))
         labels_true.append(-1)
 
@@ -144,5 +160,5 @@ if __name__ == '__main__':
     # model.load_state_dict(torch.load('saved_model.pt'))
     # model.eval()
     print('performing clustering...')
-    res = evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=5, subset='only_seq')
+    res = evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=3, subset='all')
     print(res)

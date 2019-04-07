@@ -15,6 +15,7 @@ import numpy as np
 num_validation_sets = 3  # number of experiments to run
 val_ratio = 0.075          # use this much of each training set for validation
 feature_subset = 'exclude_seqs'
+dim_size = 10
 
 pairs_unsimilar_factor = 1
 pairs_trivial_factor = 1
@@ -35,7 +36,7 @@ annPClassNames = dat[3]
 annPOccNames = dat[4]
 genPClassNames = dat[5]
 genPOccNames = dat[6]
-filtGenPClassNames = dat[7]
+tune_fams = dat[7]
 sorted_fkeys = sorted(list(pOccs.values())[0].occFeatures.keys())
 
 # break up into sets
@@ -44,6 +45,7 @@ np.random.shuffle(idx_shuffle)
 set_idxs = np.array_split(idx_shuffle, num_validation_sets)
 
 all_results = []
+pca_results = []
 
 for run_num in range(3): #range(num_validation_sets):
     print("starting run {}...".format(run_num))
@@ -78,7 +80,7 @@ for run_num in range(3): #range(num_validation_sets):
 
 
     # make the model
-    model = nc.FFNetDistance(num_feats=train_data.shape[-1])
+    model = nc.FFNetDistance(num_feats=train_data.shape[-1], dim_size=dim_size)
     model.to(device)
 
     # pair_idx_shuffle = np.array(range(len(train_data)))
@@ -111,7 +113,9 @@ for run_num in range(3): #range(num_validation_sets):
     model.eval()  # set model to evaluation mode
 
     epsilon = ct.estimate_best_epsilon((x_val, y_val), model)
-    epsilons = np.linspace(0.0001, epsilon/4, 100)
+    epsilons = np.geomspace(0.0001, epsilon/4, 100)
+    pca_epsilons = np.geomspace(0.000001, 1, 100)
+
 
     test_occs = []
     labels_true = []
@@ -122,7 +126,7 @@ for run_num in range(3): #range(num_validation_sets):
             labels_true.append(i)
 
     # add noisy occs:
-    for i in range(len(test_occs)):
+    for i in range(len(test_occs) * 0):
         test_occs.append(str(np.random.choice(genPOccNames)))
         labels_true.append(1)
 
@@ -130,8 +134,21 @@ for run_num in range(3): #range(num_validation_sets):
     print(res)
     all_results.append(res)
 
-for key in res.keys():
-    category = [x[key] for x in all_results]
+    pca_res = ct.evaluate_clustering_pca(test_occs, labels_true, pOccs,
+        n_components=dim_size, subset=feature_subset, epsilons=pca_epsilons)
+    print(pca_res)
+    pca_results.append(pca_res)
+
+print('EMBEDDING:')
+for key in res[0].keys():
+    category = [x[0][key] for x in all_results]
+    mean = np.mean(category)
+    stdv = np.std(category)
+    print(key, mean, stdv)
+
+print('PCA:')
+for key in res[0].keys():
+    category = [x[0][key] for x in pca_results]
     mean = np.mean(category)
     stdv = np.std(category)
     print(key, mean, stdv)
