@@ -68,6 +68,7 @@ def perform_dbscan(test_data, labels_true, eps_pctiles=None, min_samples=3):
     all_label_sets = [all_idxs, in_noise_idxs]
     eps_to_try = estimate_best_epsilons(test_data, eps_pctiles, k=min_samples)
 
+    labellings = []
     all_results = {}
     for ep_num, ep in enumerate(eps_to_try):
         db = DBSCAN(eps=ep, metric='l1', min_samples=min_samples).fit(test_data)
@@ -76,6 +77,7 @@ def perform_dbscan(test_data, labels_true, eps_pctiles=None, min_samples=3):
         # core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
         # core_samples_mask[db.core_sample_indices_] = True
         labels = db.labels_
+        labellings.append(labels)
 
         for i, idxs in enumerate(all_label_sets):
             res_str = 'eps {}, sig_only {}'.format(ep_num, i)
@@ -105,7 +107,7 @@ def perform_dbscan(test_data, labels_true, eps_pctiles=None, min_samples=3):
             except ValueError:
                 results['silhouette_score'] = -1
             all_results[res_str] = results
-    return all_results
+    return all_results, labellings
 
 
 def estimate_best_epsilons(reduced_data, percentiles=None, k=3):

@@ -139,17 +139,15 @@ for run_num in range(num_validation_sets):
     #     test_occs.append(str(np.random.choice(genPOccNames)))
     #     labels_true.append(-1)
 
-    res = ct.evaluate_clustering(test_occs, labels_true, model, pOccs,
+    res, emb_labellings = ct.evaluate_clustering(test_occs, labels_true, model, pOccs,
         feature_subset, eps_pctiles=percentiles, reduce_with_pca=reduce_with_pca)
     print(res)
     all_results.append(res)
 
-    pca_res = ct.evaluate_clustering_pca(test_occs, labels_true, pOccs,
+    pca_res, pca_labellings = ct.evaluate_clustering_pca(test_occs, labels_true, pOccs,
         n_components=dim_size, subset=feature_subset, eps_pctiles=percentiles)
     print(pca_res)
     pca_results.append(pca_res)
-
-
 
 
 print('\nEMBEDDING RESULTS:\n')
@@ -157,8 +155,8 @@ for run_key in all_results[0].keys():
     print('\n --- {} --- \n'.format(run_key))
     for key in res[run_key].keys():
         category = [x[run_key][key] for x in all_results]
-        mean = np.round(np.mean(category),3)
-        stdv = np.round(np.std(category) / np.sqrt(len(all_results)),3)
+        mean = np.round(np.mean(category), 3)
+        stdv = np.round(np.std(category) / np.sqrt(len(all_results)),  3)
         print(key, mean, stdv)
 
 print('\nPCA RESULTS:\n')
@@ -166,6 +164,6 @@ for run_key in all_results[0].keys():
     print('\n --- {} --- \n'.format(run_key))
     for key in res[run_key].keys():
         category = [x[run_key][key] for x in pca_results]
-        mean = np.round(np.mean(category),3)
+        mean = np.round(np.mean(category), 3)
         stdv = np.round(np.std(category) / np.sqrt(len(pca_results)),3)
         print(key, mean, stdv)
