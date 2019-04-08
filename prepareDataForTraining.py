@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pickle
 import numpy as np
 import itertools
+from sklearn.decomposition import PCA
 
 note_length_mult = 4
 pickle_name = 'parsed_patterns.pik'
@@ -147,7 +148,7 @@ def assemble_feats():
 
 
 def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_similar=0, unsimilar_factor=0.1,
-                                gen_factor=3, subset='all'):
+                                gen_factor=3, subset='all', reduce_with_pca=0):
 
     songs = data_in[0]
     pClasses = data_in[1]
@@ -160,9 +161,30 @@ def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_sim
 
     inp_ann_occ_names = np.concatenate([pClasses[x].occNames for x in ann_class_names])
     inp_gen_occ_names = np.concatenate([pClasses[x].occNames for x in gen_class_names])
+    all_occ_names = np.concatenate([inp_ann_occ_names, inp_gen_occ_names])
 
     fkeys = list(pOccs.values())[0].occFeatures.keys()
     sorted_fkeys = sorted(keys_subset(fkeys, subset))
+
+    occ_name_to_feats = {}
+    if reduce_with_pca > 0:
+        all_occ_names = np.sort(all_occ_names)
+        full_data = []
+        for occ_name in all_occ_names:
+            occ = pOccs[occ_name]
+            arr = [occ.occFeatures[fkey] for fkey in sorted_fkeys]
+            full_data.append(arr)
+
+        pca = PCA(reduce_with_pca)
+        reduced_data = pca.fit_transform(np.array(full_data))
+
+        for i, occ_name in enumerate(all_occ_names):
+            occ_name_to_feats[occ_name] = reduced_data[i]
+    else:
+        for occ_name in all_occ_names:
+            occ = pOccs[occ_name]
+            arr = [occ.occFeatures[fkey] for fkey in sorted_fkeys]
+            occ_name_to_feats[occ_name] = arr
 
     similar_pairs = []
     unsimilar_pairs = []
@@ -192,15 +214,15 @@ def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_sim
     labels = []
 
     for pair in similar_pairs:
-        feats1 = dict_to_array(pOccs[pair[0]].occFeatures, sorted_fkeys)
-        feats2 = dict_to_array(pOccs[pair[1]].occFeatures, sorted_fkeys)
+        feats1 = occ_name_to_feats[pair[0]]
+        feats2 = occ_name_to_feats[pair[1]]
         asdf = np.array([feats1, feats2])
         data.append(asdf)
         labels.append(1)
 
     for pair in unsimilar_pairs:
-        feats1 = dict_to_array(pOccs[pair[0]].occFeatures, sorted_fkeys)
-        feats2 = dict_to_array(pOccs[pair[1]].occFeatures, sorted_fkeys)
+        feats1 = occ_name_to_feats[pair[0]]
+        feats2 = occ_name_to_feats[pair[1]]
         asdf = np.array([feats1, feats2])
         data.append(asdf)
         labels.append(-1)

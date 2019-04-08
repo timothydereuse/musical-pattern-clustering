@@ -15,7 +15,7 @@ reload(nc)
 pickle_name = 'parsed_patterns.pik'
 
 
-def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all', epsilons=None):
+def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all', epsilons=None, reduce_with_pca=-1):
     fkeys = list(pOccs.values())[0].occFeatures.keys()
     sorted_fkeys = sorted(pdft.keys_subset(fkeys, subset))
 
@@ -24,6 +24,11 @@ def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all', epsi
         occ = pOccs[occ_name]
         arr = [occ.occFeatures[fkey] for fkey in sorted_fkeys]
         full_data.append(arr)
+
+    if reduce_with_pca > 0:
+        pca = PCA(reduce_with_pca)
+        reduced_data = pca.fit_transform(np.array(full_data))
+        full_data = reduced_data
 
     with torch.no_grad():
         full_data = torch.tensor(full_data).float()
@@ -64,7 +69,7 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
 
     best_db = None
     best_ep = 0
-    best_sil = 10000
+    best_sil = -1
     for ep in eps_to_try:
         db = DBSCAN(eps=ep, metric='l1', min_samples=3).fit(test_data)
         # hom = metrics.homogeneity_score(labels_true, db.labels_)
@@ -72,9 +77,9 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
         n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
         if n_clusters_ < 2:
             continue
-        sil = abs(n_clusters_ - n_clusters_true)
-        # sil = metrics.silhouette_score(test_data, db.labels_)
-        if sil < best_sil:
+        sil = metrics.silhouette_score(test_data, db.labels_)
+        # sil = metrics.completeness_score(labels_true, db.labels_)
+        if sil > best_sil:
             best_ep = ep
             best_sil = sil
             best_db = db
@@ -106,13 +111,16 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
         results = {}
         results['best_epsilon'] = best_ep
         results['num_clusters'] = n_clusters_
-        results['num_clusters_ratio'] = n_clusters_ / n_clusters_true
+        results['num_clusters_ratio'] = np.round(n_clusters_ / n_clusters_true, 3)
         results['num_noise_points'] = n_noise_
-        results['homogeneity_score'] = metrics.homogeneity_score(lt, l)
-        results['completeness'] = metrics.completeness_score(lt, l)
-        results['V-v_measure_score'] = metrics.v_measure_score(lt, l)
-        results['adjusted_rand_score'] = metrics.adjusted_rand_score(lt, l)
-        results['silhouette_score'] = metrics.silhouette_score(td, l)
+        results['homogeneity_score'] = np.round(metrics.homogeneity_score(lt, l), 3)
+        results['completeness'] = np.round(metrics.completeness_score(lt, l), 3)
+        results['V-v_measure_score'] = np.round(metrics.v_measure_score(lt, l), 3)
+        results['adjusted_rand_score'] = np.round(metrics.adjusted_rand_score(lt, l), 3)
+        try:
+            results['silhouette_score'] = np.round(metrics.silhouette_score(td, l), 3)
+        except ValueError:
+            results['silhouette_score'] = -1
         all_results.append(results)
     return all_results
 
@@ -155,15 +163,15 @@ if __name__ == '__main__':
             labels_true.append(i)
 
     # add noisy occs:
-    for i in range(len(test_occs) * 1):
-        test_occs.append(str(np.random.choice(genPOccNames)))
+    for i in range(len(genPOccNames) * 1):
+        test_occs.append(str(genPOccNames[i]))
         labels_true.append(-1)
 
     # load saved model
-    model = nc.FFNetDistance(num_feats=len(sorted_fkeys), dim_size=10)
-    model.load_state_dict(torch.load('saved_model.pt'))
-    model.eval()
-    print('performing clustering...')
+    # model = nc.FFNetDistance(num_feats=len(sorted_fkeys), dim_size=10)
+    # model.load_state_dict(torch.load('saved_model.pt'))
+    # model.eval()
+    # print('performing clustering...')
     # res = evaluate_clustering(test_occs, labels_true, pOccs, n_components=3, subset='all')
-    res = evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=3, subset='all')
+    res = evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subset='all')
     print(res)
