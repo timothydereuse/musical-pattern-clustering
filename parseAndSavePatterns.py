@@ -159,6 +159,8 @@ for row in genPTable:
 
     #add this occurrence's name to its corresponding pClasses entry
     pClasses[thisOccPClass].occNames.append(occName)
+    pClasses[thisOccPClass].tuneFamily = thisOccTuneFam
+
 
 #do the same thing for our annotated patterns
 #THE HEADERS ARE:

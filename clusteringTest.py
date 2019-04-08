@@ -53,6 +53,7 @@ def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subs
 def perform_dbscan(test_data, labels_true, epsilons=None):
 
     labels_true = np.array(labels_true)
+    n_clusters_true = len(set(labels_true)) - (1 if -1 in labels_true else 0)
 
     if epsilons is None:
         eps_to_try = np.geomspace(1e-6, 1e1, 20)
@@ -63,7 +64,7 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
 
     best_db = None
     best_ep = 0
-    best_sil = -1
+    best_sil = 10000
     for ep in eps_to_try:
         db = DBSCAN(eps=ep, metric='l1', min_samples=3).fit(test_data)
         # hom = metrics.homogeneity_score(labels_true, db.labels_)
@@ -71,8 +72,9 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
         n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
         if n_clusters_ < 2:
             continue
-        sil = metrics.silhouette_score(test_data, db.labels_)
-        if sil > best_sil:
+        sil = abs(n_clusters_ - n_clusters_true)
+        # sil = metrics.silhouette_score(test_data, db.labels_)
+        if sil < best_sil:
             best_ep = ep
             best_sil = sil
             best_db = db
@@ -83,12 +85,13 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
     core_samples_mask = np.zeros_like(best_db.labels_, dtype=bool)
     core_samples_mask[best_db.core_sample_indices_] = True
     labels = best_db.labels_
+    n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
 
     all_idxs = np.ones_like(labels, dtype='bool')
     in_noise_idxs = (labels_true != -1)
     out_noise_idxs = (labels != -1)
 
-    all_label_sets = [all_idxs]  # , in_noise_idxs, out_noise_idxs]
+    all_label_sets = [all_idxs, in_noise_idxs] #, out_noise_idxs]
 
     all_results = []
     for idxs in all_label_sets:
@@ -103,6 +106,7 @@ def perform_dbscan(test_data, labels_true, epsilons=None):
         results = {}
         results['best_epsilon'] = best_ep
         results['num_clusters'] = n_clusters_
+        results['num_clusters_ratio'] = n_clusters_ / n_clusters_true
         results['num_noise_points'] = n_noise_
         results['homogeneity_score'] = metrics.homogeneity_score(lt, l)
         results['completeness'] = metrics.completeness_score(lt, l)
@@ -156,9 +160,10 @@ if __name__ == '__main__':
         labels_true.append(-1)
 
     # load saved model
-    # model = nc.FFNetDistance(num_feats=len(sorted_fkeys))
-    # model.load_state_dict(torch.load('saved_model.pt'))
-    # model.eval()
+    model = nc.FFNetDistance(num_feats=len(sorted_fkeys), dim_size=10)
+    model.load_state_dict(torch.load('saved_model.pt'))
+    model.eval()
     print('performing clustering...')
+    # res = evaluate_clustering(test_occs, labels_true, pOccs, n_components=3, subset='all')
     res = evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=3, subset='all')
     print(res)

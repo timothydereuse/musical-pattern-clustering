@@ -7,7 +7,6 @@ import itertools
 note_length_mult = 4
 pickle_name = 'parsed_patterns.pik'
 
-
 def keys_subset(all_keys, type_string):
     if type_string == 'only_pitch':
         return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
@@ -147,7 +146,7 @@ def assemble_feats():
     return np.array(data), np.array(labels)
 
 
-def assemble_clustering_feats(data_in, ann_class_names, max_similar=0, unsimilar_factor=0.1,
+def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_similar=0, unsimilar_factor=0.1,
                                 gen_factor=3, subset='all'):
 
     songs = data_in[0]
@@ -158,6 +157,9 @@ def assemble_clustering_feats(data_in, ann_class_names, max_similar=0, unsimilar
     genPClassNames = data_in[5]
     genPOccNames = data_in[6]
     filtGenPClassNames = data_in[7]
+
+    inp_ann_occ_names = np.concatenate([pClasses[x].occNames for x in ann_class_names])
+    inp_gen_occ_names = np.concatenate([pClasses[x].occNames for x in gen_class_names])
 
     fkeys = list(pOccs.values())[0].occFeatures.keys()
     sorted_fkeys = sorted(keys_subset(fkeys, subset))
@@ -172,9 +174,9 @@ def assemble_clustering_feats(data_in, ann_class_names, max_similar=0, unsimilar
         similar_pairs += combo
 
         # choose occs from other classes
-        other_occs = [x for x in annPOccNames if not (x in occ_names)]
+        other_occs = [x for x in inp_ann_occ_names if not (x in occ_names)]
         choose_other_occs = np.random.choice(other_occs, int(len(combo) * unsimilar_factor))
-        choose_gen_occs = np.random.choice(genPOccNames, int(len(combo) * gen_factor), replace=False)
+        choose_gen_occs = np.random.choice(inp_gen_occ_names, int(len(combo) * gen_factor), replace=False)
 
         for i, occ in enumerate(np.concatenate((choose_other_occs, choose_gen_occs))):
             this_class_occ = occ_names[i % len(occ_names)]
