@@ -175,7 +175,7 @@ with open(fname, 'a') as the_file:
             category = [x[run_key][key] for x in all_results]
             mean = np.round(np.mean(category), 3)
             stdv = np.round(np.std(category) / np.sqrt(len(all_results)), 3)
-            the_file.write(str(key, mean, stdv))
+            the_file.write(str((key, mean, stdv)))
 
     the_file.write('\nPCA RESULTS:\n')
     for run_key in all_results[0].keys():
@@ -184,6 +184,6 @@ with open(fname, 'a') as the_file:
             category = [x[run_key][key] for x in pca_results]
             mean = np.round(np.mean(category), 3)
             stdv = np.round(np.std(category) / np.sqrt(len(pca_results)), 3)
-            the_file.write(str(key, mean, stdv))
+            the_file.write(str((key, mean, stdv)))
 
 print('done')
