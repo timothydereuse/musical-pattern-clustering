@@ -5,25 +5,27 @@ import distanceLearningNet as dln
 import prepareDataForTraining as pdft
 import netClasses as nc
 from importlib import reload
+import numpy as np
+import datetime
 reload(ct)
 reload(dln)
 reload(pdft)
 reload(nc)
 
-import numpy as np
 
+fname = 'models/run {}.txt'.format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 pickle_name = 'parsed_patterns.pik'
 num_validation_sets = 5             # number of experiments to run
 val_ratio = 0.1                     # use this much of each training set for validation
-feature_subset = 'exclude_counts'   # key indicating features to use (see prepareDataForTraining)
+feature_subset = 'exclude_seqs'   # key indicating features to use (see prepareDataForTraining)
 dim_size = 10                       # dimensionality of subspace
-stagnation_time = 1000               # stop training when val set doesn't improve in N iterations
+stagnation_time = 2000               # stop training when val set doesn't improve in N iterations
 batch_size = 256
 percentiles = [75,80,85,90,95]      # for estimating values of epsilon for DBSCAN
 
 reduce_with_pca = -1                # an interesting idea that didn't work
 
-pairs_unsimilar_factor = 1          # how many pairs of significant occs from diff pattern?
+pairs_unsimilar_factor = 0          # how many pairs of significant occs from diff pattern?
 pairs_trivial_factor = 0            # pairs of significant/trivial occs from different patterns?
 pairs_intra_trivial_factor = 1      # pairs of trivial occs from different patterns?
 pairs_max_similar = 0               # limit size of pair sets (0 = off)
@@ -141,29 +143,47 @@ for run_num in range(num_validation_sets):
 
     res, emb_labellings = ct.evaluate_clustering(test_occs, labels_true, model, pOccs,
         feature_subset, eps_pctiles=percentiles, reduce_with_pca=reduce_with_pca)
-    print(res)
+    # print(res)
     all_results.append(res)
 
     pca_res, pca_labellings = ct.evaluate_clustering_pca(test_occs, labels_true, pOccs,
         n_components=dim_size, subset=feature_subset, eps_pctiles=percentiles)
-    print(pca_res)
+    # print(pca_res)
     pca_results.append(pca_res)
 
 
-print('\nEMBEDDING RESULTS:\n')
-for run_key in all_results[0].keys():
-    print('\n --- {} --- \n'.format(run_key))
-    for key in res[run_key].keys():
-        category = [x[run_key][key] for x in all_results]
-        mean = np.round(np.mean(category), 3)
-        stdv = np.round(np.std(category) / np.sqrt(len(all_results)),  3)
-        print(key, mean, stdv)
+with open(fname, 'a') as the_file:
 
-print('\nPCA RESULTS:\n')
-for run_key in all_results[0].keys():
-    print('\n --- {} --- \n'.format(run_key))
-    for key in res[run_key].keys():
-        category = [x[run_key][key] for x in pca_results]
-        mean = np.round(np.mean(category), 3)
-        stdv = np.round(np.std(category) / np.sqrt(len(pca_results)),3)
-        print(key, mean, stdv)
+    the_file.write(
+    f"""
+    num_validation_sets:{num_validation_sets}
+    val_ratio:{val_ratio}
+    feature_subset:{feature_subset}
+    dim_size:{dim_size}
+    stagnation_time:{stagnation_time}
+    percentiles:{percentiles}
+    pairs_unsimilar_factor:{pairs_unsimilar_factor}
+    pairs_trivial_factor:{pairs_trivial_factor}
+    pairs_intra_trivial_factor:{pairs_intra_trivial_factor}
+    pairs_max_similar:{pairs_max_similar}"""
+    )
+
+    the_file.write('\nEMBEDDING RESULTS:\n')
+    for run_key in all_results[0].keys():
+        the_file.write('\n --- {} ---'.format(run_key))
+        for key in res[run_key].keys():
+            category = [x[run_key][key] for x in all_results]
+            mean = np.round(np.mean(category), 3)
+            stdv = np.round(np.std(category) / np.sqrt(len(all_results)), 3)
+            the_file.write(str(key, mean, stdv))
+
+    the_file.write('\nPCA RESULTS:\n')
+    for run_key in all_results[0].keys():
+        the_file.write('\n --- {} ---'.format(run_key))
+        for key in res[run_key].keys():
+            category = [x[run_key][key] for x in pca_results]
+            mean = np.round(np.mean(category), 3)
+            stdv = np.round(np.std(category) / np.sqrt(len(pca_results)), 3)
+            the_file.write(str(key, mean, stdv))
+
+print('done')

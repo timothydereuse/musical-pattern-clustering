@@ -6,6 +6,8 @@ genpatterns/
 GA DATA**
 NN RUN**
 testimg**
+*.txt
+*.pt
 partest.py
 testPickle.pik
 
