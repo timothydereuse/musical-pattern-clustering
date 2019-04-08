@@ -19,9 +19,9 @@ def keys_subset(all_keys, type_string):
         return [x for x in all_keys if ('std' not in x)]
     elif type_string == 'exclude_song_comp':
         return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
-    elif type_string == 'only_seq':
+    elif type_string == 'only_seqs':
         return [x for x in all_keys if ('seq' in x)]
-    elif type_string == 'only_seq_and_rhythm':
+    elif type_string == 'only_seqs_and_rhythms':
         return [x for x in all_keys if 'seq' in x or 'expected' in x or 'rhythm' in x]
     elif type_string == 'exclude_counts':
         return [x for x in all_keys if 'count' not in x]
@@ -148,7 +148,7 @@ def assemble_feats():
 
 
 def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_similar=0, unsimilar_factor=0.1,
-                                gen_factor=3, subset='all', reduce_with_pca=0):
+                                gen_factor=3, intra_gen_factor=1, subset='all', reduce_with_pca=0):
 
     songs = data_in[0]
     pClasses = data_in[1]
@@ -179,12 +179,12 @@ def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_sim
         reduced_data = pca.fit_transform(np.array(full_data))
 
         for i, occ_name in enumerate(all_occ_names):
-            occ_name_to_feats[occ_name] = reduced_data[i]
+            occ_name_to_feats[occ_name] = np.array(reduced_data[i])
     else:
         for occ_name in all_occ_names:
             occ = pOccs[occ_name]
             arr = [occ.occFeatures[fkey] for fkey in sorted_fkeys]
-            occ_name_to_feats[occ_name] = arr
+            occ_name_to_feats[occ_name] = np.array(arr)
 
     similar_pairs = []
     unsimilar_pairs = []
@@ -198,11 +198,22 @@ def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_sim
         # choose occs from other classes
         other_occs = [x for x in inp_ann_occ_names if not (x in occ_names)]
         choose_other_occs = np.random.choice(other_occs, int(len(combo) * unsimilar_factor))
-        choose_gen_occs = np.random.choice(inp_gen_occ_names, int(len(combo) * gen_factor), replace=False)
 
+        choose_gen_occs = np.random.choice(inp_gen_occ_names, int(len(combo) * gen_factor), replace=False)
         for i, occ in enumerate(np.concatenate((choose_other_occs, choose_gen_occs))):
             this_class_occ = occ_names[i % len(occ_names)]
             unsimilar_pairs.append((this_class_occ, occ))
+
+    # get two-combinations of GEN class names instead
+    candidate_unsimilar_pairs = []
+    for class_name in gen_class_names:
+        occ_names = pClasses[class_name].occNames
+        combo = list(itertools.combinations(occ_names, 2))
+        candidate_unsimilar_pairs += combo
+
+    cutoff = int(intra_gen_factor * len(similar_pairs))
+    np.random.shuffle(candidate_unsimilar_pairs)
+    unsimilar_pairs += candidate_unsimilar_pairs[:cutoff]
 
     if max_similar > 0:
         idxs1 = np.random.choice(range(len(similar_pairs)), max_similar)
@@ -223,6 +234,7 @@ def assemble_clustering_feats(data_in, ann_class_names, gen_class_names, max_sim
     for pair in unsimilar_pairs:
         feats1 = occ_name_to_feats[pair[0]]
         feats2 = occ_name_to_feats[pair[1]]
+
         asdf = np.array([feats1, feats2])
         data.append(asdf)
         labels.append(-1)

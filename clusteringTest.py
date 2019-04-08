@@ -5,8 +5,10 @@ import itertools
 import torch
 import netClasses as nc
 import prepareDataForTraining as pdft
+import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 from sklearn import metrics
+from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
 from importlib import reload
 reload(pdft)
@@ -15,7 +17,7 @@ reload(nc)
 pickle_name = 'parsed_patterns.pik'
 
 
-def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all', epsilons=None, reduce_with_pca=-1):
+def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all', eps_pctiles=None, reduce_with_pca=-1):
     fkeys = list(pOccs.values())[0].occFeatures.keys()
     sorted_fkeys = sorted(pdft.keys_subset(fkeys, subset))
 
@@ -34,10 +36,10 @@ def evaluate_clustering(test_occs, labels_true, model, pOccs, subset='all', epsi
         full_data = torch.tensor(full_data).float()
         test_data = model.subspace(full_data).detach().numpy()
 
-    return perform_dbscan(test_data, labels_true, epsilons)
+    return perform_dbscan(test_data, labels_true, eps_pctiles)
 
 
-def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subset='all', epsilons=None):
+def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subset='all', eps_pctiles=None):
     '''
     use dimensionality reduction with no distance learning, cluster data, and see how well
     the found clusters match up with ground truth.
@@ -52,90 +54,70 @@ def evaluate_clustering_pca(test_occs, labels_true, pOccs, n_components=10, subs
 
     pca = PCA(n_components)
     reduced_data = pca.fit_transform(full_data)
-    return perform_dbscan(reduced_data, labels_true, epsilons)
+    return perform_dbscan(reduced_data, labels_true, eps_pctiles)
 
 
-def perform_dbscan(test_data, labels_true, epsilons=None):
+def perform_dbscan(test_data, labels_true, eps_pctiles=None, min_samples=3):
 
     labels_true = np.array(labels_true)
     n_clusters_true = len(set(labels_true)) - (1 if -1 in labels_true else 0)
 
-    if epsilons is None:
-        eps_to_try = np.geomspace(1e-6, 1e1, 20)
-    elif not (hasattr(epsilons, '__iter__')):
-        eps_to_try = [epsilons]
-    else:
-        eps_to_try = epsilons
-
-    best_db = None
-    best_ep = 0
-    best_sil = -1
-    for ep in eps_to_try:
-        db = DBSCAN(eps=ep, metric='l1', min_samples=3).fit(test_data)
-        # hom = metrics.homogeneity_score(labels_true, db.labels_)
-        # comp = metrics.completeness_score(labels_true, db.labels_)
-        n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
-        if n_clusters_ < 2:
-            continue
-        sil = metrics.silhouette_score(test_data, db.labels_)
-        # sil = metrics.completeness_score(labels_true, db.labels_)
-        if sil > best_sil:
-            best_ep = ep
-            best_sil = sil
-            best_db = db
-
-    if best_sil == -1:
-        return False
-
-    core_samples_mask = np.zeros_like(best_db.labels_, dtype=bool)
-    core_samples_mask[best_db.core_sample_indices_] = True
-    labels = best_db.labels_
-    n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
-
-    all_idxs = np.ones_like(labels, dtype='bool')
+    all_idxs = np.ones_like(labels_true, dtype='bool')
     in_noise_idxs = (labels_true != -1)
-    out_noise_idxs = (labels != -1)
 
-    all_label_sets = [all_idxs, in_noise_idxs] #, out_noise_idxs]
+    all_label_sets = [all_idxs, in_noise_idxs]
+    eps_to_try = estimate_best_epsilons(test_data, eps_pctiles, k=min_samples)
 
-    all_results = []
-    for idxs in all_label_sets:
+    all_results = {}
+    for ep_num, ep in enumerate(eps_to_try):
+        db = DBSCAN(eps=ep, metric='l1', min_samples=min_samples).fit(test_data)
+        n_clusters_ = len(set(db.labels_)) - (1 if -1 in db.labels_ else 0)
 
-        l = labels[idxs]
-        lt = labels_true[idxs]
-        td = test_data[idxs]
+        # core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+        # core_samples_mask[db.core_sample_indices_] = True
+        labels = db.labels_
 
-        # Number of clusters in labels, ignoring noise if present.
-        n_clusters_ = len(set(l)) - (1 if -1 in l else 0)
-        n_noise_ = list(l).count(-1)
-        results = {}
-        results['best_epsilon'] = best_ep
-        results['num_clusters'] = n_clusters_
-        results['num_clusters_ratio'] = np.round(n_clusters_ / n_clusters_true, 3)
-        results['num_noise_points'] = n_noise_
-        results['homogeneity_score'] = np.round(metrics.homogeneity_score(lt, l), 3)
-        results['completeness'] = np.round(metrics.completeness_score(lt, l), 3)
-        results['V-v_measure_score'] = np.round(metrics.v_measure_score(lt, l), 3)
-        results['adjusted_rand_score'] = np.round(metrics.adjusted_rand_score(lt, l), 3)
-        try:
-            results['silhouette_score'] = np.round(metrics.silhouette_score(td, l), 3)
-        except ValueError:
-            results['silhouette_score'] = -1
-        all_results.append(results)
+        for i, idxs in enumerate(all_label_sets):
+            res_str = 'eps {}, sig_only {}'.format(ep_num, i)
+            l = labels[idxs]
+            lt = labels_true[idxs]
+            td = test_data[idxs]
+
+            if n_clusters_ < 2:
+                print('degenerate clustering')
+                all_results[res_str] = False
+                continue
+
+            # Number of clusters in labels, ignoring noise if present.
+            n_clusters_ = len(set(l)) - (1 if -1 in l else 0)
+            n_noise_ = list(l).count(-1)
+            results = {}
+            results['epsilon'] = ep
+            results['num_clusters'] = n_clusters_
+            results['num_clusters_ratio'] = np.round(n_clusters_ / n_clusters_true, 3)
+            results['num_noise_points'] = n_noise_
+            results['homogeneity_score'] = np.round(metrics.homogeneity_score(lt, l), 3)
+            results['completeness'] = np.round(metrics.completeness_score(lt, l), 3)
+            results['V-v_measure_score'] = np.round(metrics.v_measure_score(lt, l), 3)
+            results['adjusted_rand_score'] = np.round(metrics.adjusted_rand_score(lt, l), 3)
+            try:
+                results['silhouette_score'] = np.round(metrics.silhouette_score(td, l), 3)
+            except ValueError:
+                results['silhouette_score'] = -1
+            all_results[res_str] = results
     return all_results
 
 
-def estimate_best_epsilon(data, model):
-    x_val = data[0]
-    y_val = data[1]
-    similar_idxs = [n for n in range(len(x_val)) if y_val[n] == 1]
+def estimate_best_epsilons(reduced_data, percentiles=None, k=3):
+    if percentiles is None:
+        percentiles = [90]
 
-    similar_data = x_val[similar_idxs]
-    with torch.no_grad():
-        distances = model(similar_data).detach().numpy()
-
-    avg_distance = np.median(distances)
-    return avg_distance
+    nbrs = NearestNeighbors(n_neighbors=k, metric='l1').fit(reduced_data)
+    distances, indices = nbrs.kneighbors(reduced_data)
+    k_dist = sorted([x[-1] for x in distances])
+    k_dist_pctiles = [np.percentile(k_dist, q) for q in percentiles]
+    print(k_dist_pctiles)
+    return k_dist_pctiles
 
 
 if __name__ == '__main__':

@@ -15,14 +15,16 @@ import numpy as np
 num_validation_sets = 5  # number of experiments to run
 val_ratio = 0.1         # use this much of each training set for validation
 feature_subset = 'exclude_counts'
-dim_size = 15
-stagnation_time = 1000
+dim_size = 10
+stagnation_time = 500
 batch_size = 256
+percentiles = [75,80,85,90,95]
 
-reduce_with_pca = -1
+reduce_with_pca = -1    # an interesting idea that didn't work
 
 pairs_unsimilar_factor = 1
 pairs_trivial_factor = 0
+pairs_intra_trivial_factor = 1
 pairs_max_similar = 0
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -58,7 +60,7 @@ set_idxs = np.array_split(idx_shuffle, num_validation_sets)
 all_results = []
 pca_results = []
 
-for run_num in range(num_validation_sets):
+for run_num in range(1): #num_validation_sets):
     print("starting run {}...".format(run_num))
 
     # test_idxs = np.concatenate(set_idxs[:-1])
@@ -84,6 +86,7 @@ for run_num in range(num_validation_sets):
         train_gen_class_names,
         unsimilar_factor=pairs_unsimilar_factor,
         gen_factor=pairs_trivial_factor,
+        intra_gen_factor=pairs_intra_trivial_factor,
         max_similar=pairs_max_similar,
         subset=feature_subset,
         reduce_with_pca=reduce_with_pca)
@@ -93,6 +96,7 @@ for run_num in range(num_validation_sets):
         train_gen_class_names,
         unsimilar_factor=pairs_unsimilar_factor,
         gen_factor=pairs_trivial_factor,
+        intra_gen_factor=pairs_intra_trivial_factor,
         max_similar=pairs_max_similar,
         subset=feature_subset,
         reduce_with_pca=reduce_with_pca)
@@ -122,10 +126,6 @@ for run_num in range(num_validation_sets):
     torch.save(model.state_dict(),'models\model{}.pt'.format(run_num))
     model.eval()  # set model to evaluation mode
 
-    epsilon = ct.estimate_best_epsilon((x_val, y_val), model)
-    epsilons = np.geomspace(0.00001, epsilon/5, 100)
-    pca_epsilons = np.geomspace(0.000001, 100, 100)
-
     # create test set of cluster-labeled occurrences
     test_occs = []
     labels_true = []
@@ -147,28 +147,32 @@ for run_num in range(num_validation_sets):
     #     labels_true.append(-1)
 
     res = ct.evaluate_clustering(test_occs, labels_true, model, pOccs,
-        feature_subset, epsilons=epsilons, reduce_with_pca=reduce_with_pca)
+        feature_subset, eps_pctiles=percentiles, reduce_with_pca=reduce_with_pca)
     print(res)
     all_results.append(res)
 
     pca_res = ct.evaluate_clustering_pca(test_occs, labels_true, pOccs,
-        n_components=dim_size, subset=feature_subset, epsilons=pca_epsilons)
+        n_components=dim_size, subset=feature_subset, eps_pctiles=percentiles)
     print(pca_res)
     pca_results.append(pca_res)
 
 
 
-for n in range(len(res)):
-    print('EMBEDDING:')
-    for key in res[n].keys():
-        category = [x[n][key] for x in all_results]
+
+print('\nEMBEDDING RESULTS:\n')
+for run_key in all_results[0].keys():
+    print('\n --- {} --- \n'.format(run_key))
+    for key in res[run_key].keys():
+        category = [x[run_key][key] for x in all_results]
         mean = np.round(np.mean(category),3)
         stdv = np.round(np.std(category) / np.sqrt(len(all_results)),3)
         print(key, mean, stdv)
 
-    print('PCA:')
-    for key in res[n].keys():
-        category = [x[n][key] for x in pca_results]
+print('\nPCA RESULTS:\n')
+for run_key in all_results[0].keys():
+    print('\n --- {} --- \n'.format(run_key))
+    for key in res[run_key].keys():
+        category = [x[run_key][key] for x in pca_results]
         mean = np.round(np.mean(category),3)
-        stdv = np.round(np.std(category) / np.sqrt(len(all_results)),3)
+        stdv = np.round(np.std(category) / np.sqrt(len(pca_results)),3)
         print(key, mean, stdv)

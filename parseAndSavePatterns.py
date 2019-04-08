@@ -121,48 +121,6 @@ for nm in (annPClassNames):
 for nm in (genPClassNames):
     pClasses[nm] = pc.PatClass(occNames=[],classFeatures={},type='gen',tuneFamily='');
 
-# go thru pattern files and populate genpOccs and genpClasses
-# THE HEADERS ARE:
-# 0: pattern class name
-# 1: pattern occurrence name
-# 2: song number (when songNames is sorted alphabetically)
-# 3: occurrence start index
-# 4: occurrence end index
-for row in genPTable:
-    # figure out new name for this pattern occurrence
-    # row 0 is the pattern class name.
-
-    thisOccPClass = row[0]
-    occName = row[1]
-    thisOccSongName = songNames[int(row[2])]
-    thisOccTuneFam = tune_fams[thisOccSongName]
-    thisOccStartInd = int(row[3])
-    thisOccEndInd = int(row[4])
-    thisOccScore = ft.extractPatternOccurrence(thisOccSongName, thisOccStartInd,
-                                            thisOccEndInd, False, songs)
-
-    # it's possible for some reason for occs to have 1 note. don't do this.
-    if len(list(thisOccScore)) <= 1:
-        continue
-    genPOccNames.append(occName)
-
-    pOccs[occName] = pc.PatOccurrence(
-        songName=thisOccSongName,
-        startInd=thisOccStartInd,
-        endInd=thisOccEndInd,
-        score=thisOccScore,
-        patternClass=thisOccPClass,
-        type='gen',
-        occFeatures={}, # compute features later
-        tuneFamily=thisOccTuneFam
-    )
-
-    #add this occurrence's name to its corresponding pClasses entry
-    pClasses[thisOccPClass].occNames.append(occName)
-    pClasses[thisOccPClass].tuneFamily = thisOccTuneFam
-
-
-#do the same thing for our annotated patterns
 #THE HEADERS ARE:
 #0: tunefamily
 #1: songid
@@ -203,6 +161,49 @@ for row in annPTable:
     #add this occurrence's name to its corresponding pClasses entry
     pClasses[thisOccPClass].occNames.append(occName)
     pClasses[thisOccPClass].tuneFamily = thisOccTuneFam
+
+# go thru pattern files and populate genpOccs and genpClasses
+# THE HEADERS ARE:
+# 0: pattern class name
+# 1: pattern occurrence name
+# 2: song number (when songNames is sorted alphabetically)
+# 3: occurrence start index
+# 4: occurrence end index
+for row in genPTable:
+    # figure out new name for this pattern occurrence
+    # row 0 is the pattern class name.
+
+    thisOccPClass = row[0]
+    occName = row[1]
+    thisOccSongName = songNames[int(row[2])]
+    thisOccTuneFam = tune_fams[thisOccSongName]
+    thisOccStartInd = int(row[3])
+    thisOccEndInd = int(row[4])
+    thisOccScore = ft.extractPatternOccurrence(thisOccSongName, thisOccStartInd,
+                                            thisOccEndInd, False, songs)
+
+    # it's possible for some reason for occs to have 1 note. don't do this.
+    if len(list(thisOccScore)) <= 1:
+        continue
+    genPOccNames.append(occName)
+
+    # it's possible for two occurrences from different patterns to be equal
+
+    pOccs[occName] = pc.PatOccurrence(
+        songName=thisOccSongName,
+        startInd=thisOccStartInd,
+        endInd=thisOccEndInd,
+        score=thisOccScore,
+        patternClass=thisOccPClass,
+        type='gen',
+        occFeatures={}, # compute features later
+        tuneFamily=thisOccTuneFam
+    )
+
+    #add this occurrence's name to its corresponding pClasses entry
+    pClasses[thisOccPClass].occNames.append(occName)
+    pClasses[thisOccPClass].tuneFamily = thisOccTuneFam
+
 
 # ROUTINE TO REMOVE GEN PATTERNS THAT ARE SIMILAR TO ANN PATTERNS
 print('removing generated pattern classes that are too similar...')

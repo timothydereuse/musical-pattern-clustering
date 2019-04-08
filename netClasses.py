@@ -44,8 +44,8 @@ class FFNet(nn.Module):
 class FFNetDistance(nn.Module):
     def __init__(self, num_feats, dim_size=10):
         super(FFNetDistance, self).__init__()
-        layer1_chan = 40
-        layer2_chan = 40
+        layer1_chan = 50
+        layer2_chan = 50
         layer3_chan = dim_size
         drop_out_prob = 0.05
 
