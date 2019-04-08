@@ -18,16 +18,16 @@ pickle_name = 'parsed_patterns.pik'
 num_validation_sets = 5             # number of experiments to run
 val_ratio = 0.1                     # use this much of each training set for validation
 feature_subset = 'exclude_seqs'   # key indicating features to use (see prepareDataForTraining)
-dim_size = 10                       # dimensionality of subspace
-stagnation_time = 2000               # stop training when val set doesn't improve in N iterations
+dim_size = 5                       # dimensionality of subspace
+stagnation_time = 1000               # stop training when val set doesn't improve in N iterations
 batch_size = 256
-percentiles = [75,80,85,90,95]      # for estimating values of epsilon for DBSCAN
+percentiles = [10, 30, 50, 70, 90]      # for estimating values of epsilon for DBSCAN
 
 reduce_with_pca = -1                # an interesting idea that didn't work
 
-pairs_unsimilar_factor = 0          # how many pairs of significant occs from diff pattern?
+pairs_unsimilar_factor = 1          # how many pairs of significant occs from diff pattern?
 pairs_trivial_factor = 0            # pairs of significant/trivial occs from different patterns?
-pairs_intra_trivial_factor = 1      # pairs of trivial occs from different patterns?
+pairs_intra_trivial_factor = 0      # pairs of trivial occs from different patterns?
 pairs_max_similar = 0               # limit size of pair sets (0 = off)
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -56,7 +56,7 @@ fams_sets = np.array_split(fams_shuffle, num_validation_sets)
 all_results = []
 pca_results = []
 
-for run_num in range(num_validation_sets):
+for run_num in range(1): #num_validation_sets):
     print("starting run {}...".format(run_num))
 
     test_fams = fams_sets[0]
@@ -152,6 +152,7 @@ for run_num in range(num_validation_sets):
     pca_results.append(pca_res)
 
 
+# write results of cross-validation to a file
 with open(fname, 'a') as the_file:
 
     the_file.write(
@@ -175,7 +176,7 @@ with open(fname, 'a') as the_file:
             category = [x[run_key][key] for x in all_results]
             mean = np.round(np.mean(category), 3)
             stdv = np.round(np.std(category) / np.sqrt(len(all_results)), 3)
-            the_file.write(str((key, mean, stdv)))
+            the_file.write('{}: {} , {}\n'.format(key, mean, stdv))
 
     the_file.write('\nPCA RESULTS:\n')
     for run_key in all_results[0].keys():
@@ -184,6 +185,11 @@ with open(fname, 'a') as the_file:
             category = [x[run_key][key] for x in pca_results]
             mean = np.round(np.mean(category), 3)
             stdv = np.round(np.std(category) / np.sqrt(len(pca_results)), 3)
-            the_file.write(str((key, mean, stdv)))
+            the_file.write('{}: {} , {}\n'.format(key, mean, stdv))
 
 print('done')
+
+# plt.clf()
+# #plt.plot(labels_true)
+# plt.plot(emb_labellings[0])
+# plt.show()

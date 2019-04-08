@@ -11,6 +11,7 @@ from sklearn import metrics
 from sklearn.neighbors import NearestNeighbors
 from sklearn.decomposition import PCA
 from importlib import reload
+from collections import Counter
 reload(pdft)
 reload(nc)
 
@@ -79,6 +80,10 @@ def perform_dbscan(test_data, labels_true, eps_pctiles=None, min_samples=3):
         labels = db.labels_
         labellings.append(labels)
 
+        c = Counter(l for l in labels if l > 0)
+        med_clust_size = np.median(list(c.values()))
+        mean_clust_size = np.mean(list(c.values()))
+
         for i, idxs in enumerate(all_label_sets):
             res_str = 'eps {}, sig_only {}'.format(ep_num, i)
             l = labels[idxs]
@@ -96,6 +101,8 @@ def perform_dbscan(test_data, labels_true, eps_pctiles=None, min_samples=3):
             results = {}
             results['epsilon'] = ep
             results['num_clusters'] = n_clusters_
+            results['median_cluster_size'] = med_clust_size
+            results['mean_cluster_size'] = mean_clust_size
             results['num_clusters_ratio'] = np.round(n_clusters_ / n_clusters_true, 3)
             results['num_noise_points'] = n_noise_
             results['homogeneity_score'] = np.round(metrics.homogeneity_score(lt, l), 3)
@@ -118,7 +125,11 @@ def estimate_best_epsilons(reduced_data, percentiles=None, k=3):
     distances, indices = nbrs.kneighbors(reduced_data)
     k_dist = sorted([x[-1] for x in distances])
     k_dist_pctiles = [np.percentile(k_dist, q) for q in percentiles]
-    print(k_dist_pctiles)
+
+    for i, val in enumerate(k_dist_pctiles):
+        if val == 0:
+            k_dist_pctiles[i] = min([x for x in k_dist_pctiles if x > 0]) / 2
+
     return k_dist_pctiles
 
 
