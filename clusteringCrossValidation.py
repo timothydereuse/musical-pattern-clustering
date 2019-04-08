@@ -12,24 +12,24 @@ reload(nc)
 
 import numpy as np
 
-num_validation_sets = 5  # number of experiments to run
-val_ratio = 0.1         # use this much of each training set for validation
-feature_subset = 'exclude_counts'
-dim_size = 10
-stagnation_time = 500
+pickle_name = 'parsed_patterns.pik'
+num_validation_sets = 5             # number of experiments to run
+val_ratio = 0.1                     # use this much of each training set for validation
+feature_subset = 'exclude_counts'   # key indicating features to use (see prepareDataForTraining)
+dim_size = 10                       # dimensionality of subspace
+stagnation_time = 1000               # stop training when val set doesn't improve in N iterations
 batch_size = 256
-percentiles = [75,80,85,90,95]
+percentiles = [75,80,85,90,95]      # for estimating values of epsilon for DBSCAN
 
-reduce_with_pca = -1    # an interesting idea that didn't work
+reduce_with_pca = -1                # an interesting idea that didn't work
 
-pairs_unsimilar_factor = 1
-pairs_trivial_factor = 0
-pairs_intra_trivial_factor = 1
-pairs_max_similar = 0
+pairs_unsimilar_factor = 1          # how many pairs of significant occs from diff pattern?
+pairs_trivial_factor = 0            # pairs of significant/trivial occs from different patterns?
+pairs_intra_trivial_factor = 1      # pairs of trivial occs from different patterns?
+pairs_max_similar = 0               # limit size of pair sets (0 = off)
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
-pickle_name = 'parsed_patterns.pik'
+device = torch.device("cpu") # GPU doesn't really help here
 
 # load from pickle
 print("loading data from file...")
@@ -51,19 +51,12 @@ fams_shuffle = np.array(tune_fams)
 np.random.shuffle(fams_shuffle)
 fams_sets = np.array_split(fams_shuffle, num_validation_sets)
 
-
-# break up into sets
-idx_shuffle = np.array(range(len(annPClassNames)))
-np.random.shuffle(idx_shuffle)
-set_idxs = np.array_split(idx_shuffle, num_validation_sets)
-
 all_results = []
 pca_results = []
 
-for run_num in range(1): #num_validation_sets):
+for run_num in range(num_validation_sets):
     print("starting run {}...".format(run_num))
 
-    # test_idxs = np.concatenate(set_idxs[:-1])
     test_fams = fams_sets[0]
     train_fams = np.concatenate(fams_sets[1:])
     fams_sets = np.roll(fams_sets, 1)    # prepare for the next test by rotating test/train
