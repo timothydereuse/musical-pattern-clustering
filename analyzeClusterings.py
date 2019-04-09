@@ -1,65 +1,50 @@
-import music21
+from music21 import *
+us = environment.UserSettings()
+us.create()
 import numpy as np
+environment.set("musescoreDirectPNGPath", "C:\\Program Files\\MuseScore 3\\bin\\MuseScore3.exe")
+environment.set('musicxmlPath', "C:/Program Files (x86)/LilyPond/usr/bin/lilypond.exe")
+environment.set('lilypondPath', "C:/Program Files (x86)/LilyPond/usr/bin/lilypond.exe")
 
-from sklearn.cluster import DBSCAN
-from sklearn import metrics
-from sklearn.datasets.samples_generator import make_blobs
-from sklearn.preprocessing import StandardScaler
+def reassemble_patterns(labelling, test_occs, pOccs):
+    found_patterns = []
+    occ_name_to_pattern = {}
+    for pat_num in list(set(labelling)):
+        if pat_num == -1:
+            continue
+        idxs = [i for i, x in enumerate(labelling) if x == pat_num]
+        occ_names = [test_occs[i] for i in idxs]
+        occs = [pOccs[n] for n in occ_names]
+        found_patterns.append(occ_names)
+        for on in occ_names:
+            occ_name_to_pattern[on] = pat_num
+    return found_patterns, occ_name_to_pattern
+
+def list_notes(pat, pOccs):
+    for occ_name in pat:
+        occ = pOccs[occ_name]
+        noteDurs = [round(float(x.quarterLength), 5) for x in occ.score.notes.stream()]
+        noteNums = [x.pitch.midi for x in occ.score.notes.stream()]
+        print(str(list(zip(noteNums, noteDurs))), occ.type)
+
+emb_pats, emb_guide = reassemble_patterns(emb_labellings[4], test_occs, pOccs)
+real_pats, real_guide = reassemble_patterns(labels_true, test_occs, pOccs)
+
+EXAMPLE_PAT = real_pats[2]
+EXAMPLE_EMB = emb_pats[3]
+EXAMPLE_REAL = real_pats[17]
 
 
-# #############################################################################
-# Generate sample data
-centers = [[1, 1], [-1, -1], [1, -1]]
-X, labels_true = make_blobs(n_samples=750, centers=centers, cluster_std=0.4,
-                            random_state=0)
+print([real_guide[x] for x in emb_pats[1]])
+list_notes(emb_pats[1], pOccs)
 
-X = StandardScaler().fit_transform(X)
+for i, occ_name in enumerate(emb_pats[1]):
+    score = pOccs[occ_name].score.notes
+    for note in score:
+        note.lyric = ''
+    fname = 'pics/shortpat_{}'.format(i)
+    conv = converter.subConverters.ConverterLilypond()
+    conv.write(score.stream(), fmt='lilypond', fp=fname, subformats=['png'], dpi=500)
 
-# #############################################################################
-# Compute DBSCAN
-db = DBSCAN(eps=0.3, min_samples=10).fit(X)
-core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-core_samples_mask[db.core_sample_indices_] = True
-labels = db.labels_
-
-# Number of clusters in labels, ignoring noise if present.
-n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-n_noise_ = list(labels).count(-1)
-
-print('Estimated number of clusters: %d' % n_clusters_)
-print('Estimated number of noise points: %d' % n_noise_)
-print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels_true, labels))
-print("Completeness: %0.3f" % metrics.completeness_score(labels_true, labels))
-print("V-measure: %0.3f" % metrics.v_measure_score(labels_true, labels))
-print("Adjusted Rand Index: %0.3f"
-      % metrics.adjusted_rand_score(labels_true, labels))
-print("Adjusted Mutual Information: %0.3f"
-      % metrics.adjusted_mutual_info_score(labels_true, labels))
-print("Silhouette Coefficient: %0.3f"
-      % metrics.silhouette_score(X, labels))
-
-# #############################################################################
-# Plot result
-import matplotlib.pyplot as plt
-
-# Black removed and is used for noise instead.
-unique_labels = set(labels)
-colors = [plt.cm.Spectral(each)
-          for each in np.linspace(0, 1, len(unique_labels))]
-for k, col in zip(unique_labels, colors):
-    if k == -1:
-        # Black used for noise.
-        col = [0, 0, 0, 1]
-
-    class_member_mask = (labels == k)
-
-    xy = X[class_member_mask & core_samples_mask]
-    plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
-             markeredgecolor='k', markersize=14)
-
-    xy = X[class_member_mask & ~core_samples_mask]
-    plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
-             markeredgecolor='k', markersize=6)
-
-plt.title('Estimated number of clusters: %d' % n_clusters_)
-plt.show()
+with open('paperfigs.pik', 'wb') as f:
+    pickle.dump((emb_labellings[4], labels_true, test_occs), f, -1)

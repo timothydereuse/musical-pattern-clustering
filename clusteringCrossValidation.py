@@ -21,7 +21,7 @@ feature_subset = 'exclude_seqs'   # key indicating features to use (see prepareD
 dim_size = 5                       # dimensionality of subspace
 stagnation_time = 1000               # stop training when val set doesn't improve in N iterations
 batch_size = 256
-percentiles = [10, 30, 50, 70, 90]      # for estimating values of epsilon for DBSCAN
+percentiles = [75, 80, 85, 90, 95]      # for estimating values of epsilon for DBSCAN
 
 reduce_with_pca = -1                # an interesting idea that didn't work
 
