@@ -8,25 +8,29 @@ from sklearn.decomposition import PCA
 note_length_mult = 4
 pickle_name = 'parsed_patterns.pik'
 
+
 def keys_subset(all_keys, type_string):
+    all_keys = [x for x in all_keys if 'seq' not in x]
     if type_string == 'only_pitch':
         return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
     elif type_string == 'only_rhythm':
         return [x for x in all_keys if ('rhythm' in x)]
-    elif type_string == 'exclude_means':
-        return [x for x in all_keys if ('avg' not in x)]
-    elif type_string == 'exclude_stds':
-        return [x for x in all_keys if ('std' not in x)]
-    elif type_string == 'exclude_song_comp':
-        return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
-    elif type_string == 'only_seqs':
-        return [x for x in all_keys if ('seq' in x)]
-    elif type_string == 'only_seqs_and_rhythms':
-        return [x for x in all_keys if 'seq' in x or 'expected' in x or 'rhythm' in x]
-    elif type_string == 'exclude_counts':
+    elif type_string == 'only_context':
+        return [x for x in all_keys if ('diff' in x or 'expected' in x)]
+    elif type_string == 'only_histogram':
+        return [x for x in all_keys if 'count' in x]
+    elif type_string == 'only_contour':
+        return [x for x in all_keys if 'polyfit' in x]
+    elif type_string == 'exclude_pitch':
+        return [x for x in all_keys if not ('pitch' in x or 'interval' in x)]
+    elif type_string == 'exclude_rhythm':
+        return [x for x in all_keys if not ('rhythm' in x)]
+    elif type_string == 'exclude_context':
+        return [x for x in all_keys if not ('diff' in x or 'expected' in x)]
+    elif type_string == 'exclude_histogram':
         return [x for x in all_keys if 'count' not in x]
-    elif type_string == 'exclude_seqs':
-        return [x for x in all_keys if 'seq' not in x]
+    elif type_string == 'exclude_contour':
+        return [x for x in all_keys if 'polyfit' not in x]
     elif type_string == 'all':
         return all_keys
     else:

@@ -12,26 +12,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 from timeit import default_timer as timer
 
-#round all duration values to this many digits!
-#some are stored as fractions and that's just inconvenient
-ROUND_DURS_DIGITS = 5;
+# round all duration values to this many digits!
+# some are stored as fractions and that's just inconvenient
+ROUND_DURS_DIGITS = 5
 
 # N.B. THE HEADERS ARE:
-#0: tunefamily
-#1: songid
-#2: motifid
-#3: begintime
-#4: endtime
-#5: duration
-#6: startindex
-#7: endindex
-#8: numberofnotes
-#9: motifclass
-#10: description
-#11: annotator
-#12: changes
+# 0: tunefamily
+# 1: songid
+# 2: motifid
+# 3: begintime
+# 4: endtime
+# 5: duration
+# 6: startindex
+# 7: endindex
+# 8: numberofnotes
+# 9: motifclass
+# 10: description
+# 11: annotator
+# 12: changes
 
-#try to fetch a single motif
+# try to fetch a single motif
 
 
 # def extractMotif(annEntry, songs):
@@ -89,7 +89,7 @@ ROUND_DURS_DIGITS = 5;
 # so: consider the list of notes up to the first index. if there's n ties
 # that live behind the start index, increment the start index by n. when done,
 # look 8 notes ahead and do the same thing
-def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
+def extractPatternOccurrence(songName, inStart, inEnd, useTies, songs):
     """
     given song name, occurrence start, occurrence end, and the database of score files,
     return the notes of the associated pattern occurrence
@@ -111,7 +111,7 @@ def extractPatternOccurrence(songName,inStart,inEnd,useTies,songs):
         beforeSlice = allNotes[:inStart-1]
         numTies = 0
         for n in beforeSlice:
-            if(n.tie != None):
+            if(n.tie is not None):
                 if(n.tie.type == 'start'):
                     numTies += 1
 
@@ -300,7 +300,7 @@ def getFeaturesForOccurrences(cur_class, songs):
     for key in song_diff_keys:
         vec['diff_' + key] = songVec[key] - vec[key]
 
-     # songScore = songs[motif['songName']]['score'].flat.notes.stream()
+    # songScore = songs[motif['songName']]['score'].flat.notes.stream()
 #    songScoreNums = [x.pitch.midi for x in songScore]
 
 #    vec['intervalFollowing'] = 0
@@ -327,22 +327,22 @@ def getFeaturesForOccurrences(cur_class, songs):
     try:
         noteBeats = [x.beat for x in mel]
         vec['rhythm_starts_on_downbeat'] = (noteBeats[0] == 1.0)
-        vec['rhythm_crosses_measure'] = sum([noteBeats[n] < noteBeats[n-1] for n in range(1,len(noteBeats))]) > 0
+        vec['rhythm_crosses_measure'] = sum([noteBeats[n] < noteBeats[n-1] for n in range(1, len(noteBeats))]) > 0
 
-        #figure out how to tell if note has associated time signature
+        # figure out how to tell if note has associated time signature
         noteStr = [x.beatStrength for x in mel]
         vec['rhythm_start_beat_str'] = np.log(noteStr[0])
         vec['rhythm_last_beat_str'] = np.log(noteStr[len(noteStr)-1])
     except m21.Music21ObjectException:
-        #this is not a good solution.
+        # this is not a good solution.
         pass
 
-    #send it back
+    # send it back
     return vec
 
 
 def getFeaturesForClasses(patternClass, occs, songs):
-    #take the average/std over all occurrences
+    # take the average/std over all occurrences
     vec = {}
 
     vec['numOccs'] = len(patternClass.occNames)
@@ -354,43 +354,41 @@ def getFeaturesForClasses(patternClass, occs, songs):
         vec["avg_" + fk] = np.mean(allOccVals)
         vec["std_" + fk] = np.std(allOccVals)
 
-
-    scores = [ occs[oc].score.flat for oc in patternClass.occNames]
+    scores = [occs[oc].score.flat for oc in patternClass.occNames]
 
     noteNums = [[x.pitch.midi for x in mel] for mel in scores]
-    noteDurs = [[round(float(x.quarterLength),ROUND_DURS_DIGITS) \
+    noteDurs = [[round(float(x.quarterLength), ROUND_DURS_DIGITS)
     for x in mel] for mel in scores]
 
     flatNums = [x for subList in noteNums for x in subList]
     vec['num_notes_total'] = len(flatNums)
 
     vec['unique_pitch_prop_content'] = \
-    len(set(tuple(x) for x in noteNums)) / vec['numOccs']
+        len(set(tuple(x) for x in noteNums)) / vec['numOccs']
 
     vec['unique_rhythm_prop_content'] = \
-   len(set(tuple(x) for x in noteDurs)) / vec['numOccs']
+        len(set(tuple(x) for x in noteDurs)) / vec['numOccs']
 
-    pitchAndDurs = [(noteNums[x] + noteDurs[x]) for x in range(0,vec['numOccs'])]
+    pitchAndDurs = [(noteNums[x] + noteDurs[x]) for x in range(0, vec['numOccs'])]
 
     vec['prop_unique_content'] = \
-    len(set(tuple(x) for x in pitchAndDurs)) / vec['numOccs']
+        len(set(tuple(x) for x in pitchAndDurs)) / vec['numOccs']
 
     return vec
 
 
 def filterPClassesWithKNN(annPClassNames, genPClassNames, kNearest, pClasses, pOccs):
-    #so: we want to take a sample of our huge number of generated pattern classes
-    #such that the number of occurrences and average cardinality doesn't easily
-    #distinguish our sample from the annotated group.
-
-    #perform a quick and dirty knn to get a bunch of generated class names
-    #whose cardinalities and numOccs somewhat match the annotated data.
+    # so: we want to take a sample of our huge number of generated pattern classes
+    # such that the number of occurrences and average cardinality doesn't easily
+    # distinguish our sample from the annotated group.
+    # perform a quick and dirty knn to get a bunch of generated class names
+    # whose cardinalities and numOccs somewhat match the annotated data.
     indexPairs = np.arange(len(annPClassNames))
     indexPairs = np.concatenate([indexPairs, indexPairs])
     np.random.shuffle(indexPairs)
-    indexPairs = np.split(indexPairs,len(indexPairs)/2)
+    indexPairs = np.split(indexPairs, len(indexPairs)/2)
 
-    #deep copy!
+    # deep copy!
     genPClassNamesCopy = list(genPClassNames)
     filtGenPClassNames = []
 
@@ -405,7 +403,7 @@ def filterPClassesWithKNN(annPClassNames, genPClassNames, kNearest, pClasses, pO
 
         candidateNameList = []
 
-        #calculate how close each generated class is to these parameters
+        # calculate how close each generated class is to these parameters
         for gcn in genPClassNamesCopy:
             cand = pClasses[gcn]
             candNumOccs = len(cand.occNames)
@@ -416,9 +414,9 @@ def filterPClassesWithKNN(annPClassNames, genPClassNames, kNearest, pClasses, pO
 
             candidateNameList.append([candScore, gcn])
 
-        #from the kNearest closest generated classes, choose one and remove
-        #that one from the copy array
-        candidateNameList = sorted(candidateNameList,key=lambda x: x[0])
+        # from the kNearest closest generated classes, choose one and remove
+        # that one from the copy array
+        candidateNameList = sorted(candidateNameList, key=lambda x: x[0])
         chop = candidateNameList[0:kNearest]
         choice = chop[np.random.choice(kNearest)][1]
         filtGenPClassNames.append(choice)
@@ -426,44 +424,30 @@ def filterPClassesWithKNN(annPClassNames, genPClassNames, kNearest, pClasses, pO
 
     return filtGenPClassNames
 
-def keys_subset(all_keys,type_string):
-    if type_string == 'only_pitch':
-        return [x for x in all_keys if ('pitch' in x or 'interval' in x)]
-    elif type_string == 'only_rhythm':
-        return [x for x in all_keys if ('rhythm' in x)]
-    elif type_string == 'exclude_means':
-        return [x for x in all_keys if ('avg' not in x)]
-    elif type_string == 'exclude_stds':
-        return [x for x in all_keys if ('std' not in x)]
-    elif type_string == 'exclude_song_comp':
-        return [x for x in all_keys if ('diff' not in x and 'expected' not in x)]
-    elif type_string == 'all':
-        return all_keys
-    else:
-        raise TypeError('bad keys_subset type ' + str(type_string))
-    pass
 
-def split_into_chunks(inp,num_chunks):
+def split_into_chunks(inp, num_chunks):
 
     chunk_len = int(np.floor(len(inp) / num_chunks))
     chunks = [inp[i:i + chunk_len] for i in range(0, len(inp), chunk_len)]
     if len(chunks) > num_chunks:
-        for i,x in enumerate(chunks[num_chunks]):
+        for i, x in enumerate(chunks[num_chunks]):
             chunks[i].append(x)
         del chunks[num_chunks]
 
     return chunks
 
-#just for testing: get all features
-#plt.plot(sorted(inspectFeature('classAvg_pitch_mean',pClasses,genPClassNames + annPClassNames)))
-def inspectFeature(featureName,table,tableNames,featsType="classFeatures"):
+
+# just for testing: get all features
+# plt.plot(sorted(inspectFeature('classAvg_pitch_mean',pClasses,genPClassNames + annPClassNames)))
+def inspectFeature(featureName, table, tableNames, featsType="classFeatures"):
     ret = []
     for tn in tableNames:
         item = table[tn]
         ret.append(item[featsType][featureName])
     return ret
 
-def scatterFeatures(fn1,fn2,table,tableNames):
+
+def scatterFeatures(fn1, fn2, table, tableNames):
 
     xs = []
     ys = []
@@ -480,7 +464,7 @@ def scatterFeatures(fn1,fn2,table,tableNames):
 
     print(types)
 
-    plt.scatter(xs,ys,c=types)
+    plt.scatter(xs, ys, c=types)
     plt.xlabel(fn1)
     plt.ylabel(fn2)
     plt.show()
