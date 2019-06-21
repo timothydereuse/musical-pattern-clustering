@@ -1,0 +1,254 @@
+
+    num_validation_sets:5
+    val_ratio:0.1
+    feature_subset:exclude_contour
+    dim_size:5
+    stagnation_time:1000
+    percentiles:[75, 80, 85, 90, 95]
+    pairs_unsimilar_factor:1
+    pairs_trivial_factor:1
+    pairs_intra_trivial_factor:0
+    pairs_max_similar:0
+EMBEDDING RESULTS:
+
+ --- eps 0, sig_only 0 ---epsilon: 0.103 , 0.005
+num_clusters: 157.8 , 20.023
+median_cluster_size: 5.6 , 0.358
+mean_cluster_size: 10.937 , 0.43
+num_clusters_ratio: 8.768 , 1.429
+num_noise_points: 471.4 , 59.104
+homogeneity_score: 0.559 , 0.022
+completeness: 0.122 , 0.011
+V-v_measure_score: 0.198 , 0.015
+adjusted_rand_score: -0.002 , 0.002
+silhouette_score: 0.09700000286102295 , 0.029
+
+ --- eps 0, sig_only 1 ---epsilon: 0.103 , 0.005
+num_clusters: 41.4 , 2.851
+median_cluster_size: 5.6 , 0.358
+mean_cluster_size: 10.937 , 0.43
+num_clusters_ratio: 2.23 , 0.064
+num_noise_points: 82.8 , 13.998
+homogeneity_score: 0.692 , 0.031
+completeness: 0.644 , 0.012
+V-v_measure_score: 0.666 , 0.02
+adjusted_rand_score: 0.27 , 0.029
+silhouette_score: 0.20600000023841858 , 0.034
+
+ --- eps 1, sig_only 0 ---epsilon: 0.115 , 0.005
+num_clusters: 136.2 , 16.665
+median_cluster_size: 5.4 , 0.219
+mean_cluster_size: 12.955 , 0.65
+num_clusters_ratio: 7.542 , 1.136
+num_noise_points: 362.0 , 49.647
+homogeneity_score: 0.52 , 0.027
+completeness: 0.124 , 0.016
+V-v_measure_score: 0.198 , 0.021
+adjusted_rand_score: 0.005 , 0.005
+silhouette_score: 0.03700000047683716 , 0.046
+
+ --- eps 1, sig_only 1 ---epsilon: 0.115 , 0.005
+num_clusters: 35.4 , 4.286
+median_cluster_size: 5.4 , 0.219
+mean_cluster_size: 12.955 , 0.65
+num_clusters_ratio: 1.888 , 0.18
+num_noise_points: 68.6 , 13.129
+homogeneity_score: 0.665 , 0.034
+completeness: 0.664 , 0.012
+V-v_measure_score: 0.664 , 0.022
+adjusted_rand_score: 0.289 , 0.027
+silhouette_score: 0.20100000500679016 , 0.05
+
+ --- eps 2, sig_only 0 ---epsilon: 0.129 , 0.005
+num_clusters: 103.2 , 12.32
+median_cluster_size: 5.7 , 0.179
+mean_cluster_size: 14.996 , 1.341
+num_clusters_ratio: 5.731 , 0.875
+num_noise_points: 263.8 , 34.488
+homogeneity_score: 0.472 , 0.036
+completeness: 0.131 , 0.019
+V-v_measure_score: 0.201 , 0.024
+adjusted_rand_score: 0.023 , 0.02
+silhouette_score: -0.04800000041723251 , 0.058
+
+ --- eps 2, sig_only 1 ---epsilon: 0.129 , 0.005
+num_clusters: 28.4 , 3.436
+median_cluster_size: 5.7 , 0.179
+mean_cluster_size: 14.996 , 1.341
+num_clusters_ratio: 1.523 , 0.157
+num_noise_points: 51.2 , 10.49
+homogeneity_score: 0.633 , 0.042
+completeness: 0.69 , 0.015
+V-v_measure_score: 0.656 , 0.024
+adjusted_rand_score: 0.32 , 0.033
+silhouette_score: 0.16699999570846558 , 0.06
+
+ --- eps 3, sig_only 0 ---epsilon: 0.145 , 0.006
+num_clusters: 68.2 , 7.906
+median_cluster_size: 5.9 , 0.456
+mean_cluster_size: 22.258 , 2.674
+num_clusters_ratio: 3.772 , 0.542
+num_noise_points: 172.8 , 22.417
+homogeneity_score: 0.41 , 0.049
+completeness: 0.14 , 0.021
+V-v_measure_score: 0.203 , 0.025
+adjusted_rand_score: 0.038 , 0.027
+silhouette_score: -0.13500000536441803 , 0.062
+
+ --- eps 3, sig_only 1 ---epsilon: 0.145 , 0.006
+num_clusters: 22.6 , 3.281
+median_cluster_size: 5.9 , 0.456
+mean_cluster_size: 22.258 , 2.674
+num_clusters_ratio: 1.192 , 0.133
+num_noise_points: 34.8 , 7.876
+homogeneity_score: 0.59 , 0.061
+completeness: 0.706 , 0.023
+V-v_measure_score: 0.636 , 0.042
+adjusted_rand_score: 0.31 , 0.053
+silhouette_score: 0.13699999451637268 , 0.081
+
+ --- eps 4, sig_only 0 ---epsilon: 0.176 , 0.004
+num_clusters: 30.6 , 3.966
+median_cluster_size: 5.9 , 0.358
+mean_cluster_size: 17.034 , 6.195
+num_clusters_ratio: 1.692 , 0.265
+num_noise_points: 80.6 , 10.975
+homogeneity_score: 0.179 , 0.046
+completeness: 0.152 , 0.033
+V-v_measure_score: 0.159 , 0.037
+adjusted_rand_score: 0.053 , 0.045
+silhouette_score: -0.4059999883174896 , 0.025
+
+ --- eps 4, sig_only 1 ---epsilon: 0.176 , 0.004
+num_clusters: 9.8 , 2.456
+median_cluster_size: 5.9 , 0.358
+mean_cluster_size: 17.034 , 6.195
+num_clusters_ratio: 0.499 , 0.12
+num_noise_points: 17.8 , 4.312
+homogeneity_score: 0.242 , 0.069
+completeness: 0.599 , 0.059
+V-v_measure_score: 0.326 , 0.083
+adjusted_rand_score: 0.066 , 0.026
+silhouette_score: -0.1120000034570694 , 0.05
+
+PCA RESULTS:
+
+ --- eps 0, sig_only 0 ---epsilon: 2.177 , 0.126
+num_clusters: 176.2 , 22.743
+median_cluster_size: 5.6 , 0.219
+mean_cluster_size: 9.942 , 0.667
+num_clusters_ratio: 9.751 , 1.528
+num_noise_points: 512.8 , 59.43
+homogeneity_score: 0.577 , 0.03
+completeness: 0.122 , 0.013
+V-v_measure_score: 0.199 , 0.018
+adjusted_rand_score: -0.012 , 0.004
+silhouette_score: 0.229 , 0.03
+
+ --- eps 0, sig_only 1 ---epsilon: 2.177 , 0.126
+num_clusters: 39.2 , 4.132
+median_cluster_size: 5.6 , 0.219
+mean_cluster_size: 9.942 , 0.667
+num_clusters_ratio: 2.108 , 0.151
+num_noise_points: 116.6 , 17.458
+homogeneity_score: 0.663 , 0.028
+completeness: 0.656 , 0.014
+V-v_measure_score: 0.658 , 0.02
+adjusted_rand_score: 0.202 , 0.03
+silhouette_score: 0.232 , 0.037
+
+ --- eps 1, sig_only 0 ---epsilon: 2.648 , 0.158
+num_clusters: 156.8 , 19.684
+median_cluster_size: 5.8 , 0.179
+mean_cluster_size: 11.884 , 0.87
+num_clusters_ratio: 8.663 , 1.298
+num_noise_points: 402.4 , 47.579
+homogeneity_score: 0.601 , 0.03
+completeness: 0.126 , 0.012
+V-v_measure_score: 0.206 , 0.018
+adjusted_rand_score: -0.006 , 0.003
+silhouette_score: 0.242 , 0.028
+
+ --- eps 1, sig_only 1 ---epsilon: 2.648 , 0.158
+num_clusters: 40.2 , 4.573
+median_cluster_size: 5.8 , 0.179
+mean_cluster_size: 11.884 , 0.87
+num_clusters_ratio: 2.16 , 0.171
+num_noise_points: 98.8 , 15.353
+homogeneity_score: 0.709 , 0.032
+completeness: 0.67 , 0.016
+V-v_measure_score: 0.688 , 0.022
+adjusted_rand_score: 0.262 , 0.036
+silhouette_score: 0.275 , 0.037
+
+ --- eps 2, sig_only 0 ---epsilon: 3.253 , 0.178
+num_clusters: 120.6 , 16.054
+median_cluster_size: 5.9 , 0.297
+mean_cluster_size: 14.631 , 1.689
+num_clusters_ratio: 6.626 , 0.968
+num_noise_points: 292.0 , 34.779
+homogeneity_score: 0.555 , 0.041
+completeness: 0.129 , 0.012
+V-v_measure_score: 0.206 , 0.015
+adjusted_rand_score: 0.002 , 0.001
+silhouette_score: 0.155 , 0.036
+
+ --- eps 2, sig_only 1 ---epsilon: 3.253 , 0.178
+num_clusters: 35.0 , 4.792
+median_cluster_size: 5.9 , 0.297
+mean_cluster_size: 14.631 , 1.689
+num_clusters_ratio: 1.869 , 0.171
+num_noise_points: 82.4 , 13.025
+homogeneity_score: 0.676 , 0.045
+completeness: 0.67 , 0.018
+V-v_measure_score: 0.671 , 0.03
+adjusted_rand_score: 0.283 , 0.035
+silhouette_score: 0.227 , 0.051
+
+ --- eps 3, sig_only 0 ---epsilon: 3.97 , 0.178
+num_clusters: 84.8 , 10.235
+median_cluster_size: 6.0 , 0.4
+mean_cluster_size: 17.048 , 4.046
+num_clusters_ratio: 4.629 , 0.565
+num_noise_points: 188.2 , 20.641
+homogeneity_score: 0.477 , 0.055
+completeness: 0.154 , 0.008
+V-v_measure_score: 0.228 , 0.01
+adjusted_rand_score: 0.079 , 0.018
+silhouette_score: -0.018 , 0.074
+
+ --- eps 3, sig_only 1 ---epsilon: 3.97 , 0.178
+num_clusters: 28.2 , 3.735
+median_cluster_size: 6.0 , 0.4
+mean_cluster_size: 17.048 , 4.046
+num_clusters_ratio: 1.506 , 0.134
+num_noise_points: 56.2 , 10.367
+homogeneity_score: 0.607 , 0.072
+completeness: 0.653 , 0.031
+V-v_measure_score: 0.624 , 0.054
+adjusted_rand_score: 0.273 , 0.057
+silhouette_score: 0.198 , 0.075
+
+ --- eps 4, sig_only 0 ---epsilon: 5.081 , 0.212
+num_clusters: 41.4 , 6.354
+median_cluster_size: 5.5 , 0.49
+mean_cluster_size: 17.674 , 7.674
+num_clusters_ratio: 2.269 , 0.36
+num_noise_points: 87.6 , 9.792
+homogeneity_score: 0.238 , 0.03
+completeness: 0.178 , 0.02
+V-v_measure_score: 0.197 , 0.018
+adjusted_rand_score: 0.099 , 0.026
+silhouette_score: -0.129 , 0.043
+
+ --- eps 4, sig_only 1 ---epsilon: 5.081 , 0.212
+num_clusters: 15.4 , 3.425
+median_cluster_size: 5.5 , 0.49
+mean_cluster_size: 17.674 , 7.674
+num_clusters_ratio: 0.829 , 0.173
+num_noise_points: 27.4 , 4.191
+homogeneity_score: 0.302 , 0.045
+completeness: 0.608 , 0.024
+V-v_measure_score: 0.396 , 0.041
+adjusted_rand_score: 0.058 , 0.019
+silhouette_score: -0.034 , 0.044

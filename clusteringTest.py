@@ -130,6 +130,16 @@ def estimate_best_epsilons(reduced_data, percentiles=None, k=3):
         if val == 0:
             k_dist_pctiles[i] = min([x for x in k_dist_pctiles if x > 0]) / 2
 
+    # plt.clf()
+    # plt.plot(sorted(k_dist, reverse=True), c='k', lw=2)
+    # plt.axvline(x=len(k_dist) * 0.05, c='k', ls=':', lw=1)
+    # plt.xlabel('Data points, ranked by distance')
+    # plt.ylabel('Distance of k-th nearest neighbor')
+    # plt.xlim(-5, len(k_dist))
+    # plt.ylim(0, max(k_dist))
+    # plt.savefig('kdistgraph.png', bbox_inches='tight', dpi=300)
+    # plt.show()
+
     return k_dist_pctiles
 
 

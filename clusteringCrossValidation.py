@@ -17,11 +17,11 @@ fname = 'models/run {}.txt'.format(datetime.datetime.now().strftime("%Y%m%d-%H%M
 pickle_name = 'parsed_patterns.pik'
 num_validation_sets = 5             # number of experiments to run
 val_ratio = 0.1                     # use this much of each training set for validation
-feature_subset = 'only_pitch'   # key indicating features to use (see prepareDataForTraining)
-dim_size = 5                       # dimensionality of subspace
-stagnation_time = 1000               # stop training when val set doesn't improve in N iterations
+feature_subset = 'all'              # key indicating features to use (see prepareDataForTraining)
+dim_size = 5                        # dimensionality of subspace
+stagnation_time = 1000              # stop training when val set doesn't improve in N iterations
 batch_size = 256
-percentiles = [75, 80, 85, 90, 95]      # for estimating values of epsilon for DBSCAN
+percentiles = [75, 80, 85, 90, 95]  # for estimating values of epsilon for DBSCAN
 
 reduce_with_pca = -1                # an interesting idea that didn't work
 
@@ -56,7 +56,7 @@ fams_sets = np.array_split(fams_shuffle, num_validation_sets)
 all_results = []
 pca_results = []
 
-for run_num in range(num_validation_sets):
+for run_num in range(1): #num_validation_sets):
     print("starting run {}...".format(run_num))
 
     test_fams = fams_sets[0]
@@ -118,7 +118,7 @@ for run_num in range(num_validation_sets):
     # TESTING
     # assemble test occurrences
 
-    torch.save(model.state_dict(), 'models/model{}.pt'. format(run_num))
+    torch.save(model.state_dict(), 'models\model{}.pt'. format(run_num))
     model.eval()  # set model to evaluation mode
 
     # create test set of cluster-labeled occurrences
